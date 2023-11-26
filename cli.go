@@ -9,16 +9,6 @@ import (
 	"time"
 )
 
-type UserInterface interface {
-	Run()
-	AvailableFormats(formats []VideoFormat)
-	Chapters(chapters []Chapter)
-	Progress(percentage float32, rate float64, delaying bool, waiting bool, retries int)
-	InfoMessage(msg string)
-	Aborted()
-	Help()
-}
-
 type Cli struct {}
 
 func (cli *Cli) Run() {
