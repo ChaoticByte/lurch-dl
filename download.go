@@ -76,8 +76,8 @@ func DownloadStreamEpisode(episodeMeta StreamEpisodeMeta, format VideoFormat, ch
 	if continueDl {
 		infoFileData, err := os.ReadFile(infoFilename)
 		if err != nil {
-			ui.InfoMessage("Can not access download info file. Can't continue download.")
-			return err
+			ui.ErrorMessage(fmt.Sprint(err), err)
+			return errors.New("could not access download info file, can't continue download")
 		}
 		i, err := strconv.ParseInt(string(infoFileData), 10, 32)
 		nextChunk = int(i)
@@ -120,7 +120,6 @@ func DownloadStreamEpisode(episodeMeta StreamEpisodeMeta, format VideoFormat, ch
 		// Handle Keyboard Interrupts
 		<-keyboardInterruptChan
 		keyboardInterrupt = true
-		fmt.Print("\r")
 		ui.Progress(percentage, actualRate, false, false, 0);
 		ui.Aborted()
 	}()

@@ -55,6 +55,7 @@ lurch-dl --url string       Die URL zum Video
          [--stop string]    Stop-Timestamp, z.B. 1h23m45s
          [--continue]       Download fortsetzen, wenn möglich
          [--overwrite]      Datei überschreiben, wenn diese bereits existiert
+         [--json]           Terminal-Ausgabe in JSON-Format
 ```
 
 ### Windows

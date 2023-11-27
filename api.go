@@ -73,8 +73,8 @@ func GetVideoChunkList(video VideoFormat) (VideoChunkList, error) {
 }
 
 type VideoFormat struct {
-	Name string
-	Url string
+	Name string `json:"format"`
+	Url string `json:"url"`
 }
 
 type FormatNotFoundError struct {
@@ -86,6 +86,7 @@ func (err *FormatNotFoundError) Error() string {
 }
 
 type Chapter struct {
+	Index int `json:"index"`
 	Title string `json:"title"`
 	Offset time.Duration `json:"offset"`
 }
@@ -128,9 +129,7 @@ func GetStreamEpisodeMeta(episode string, chapterIdx int) (StreamEpisodeMeta, er
 		[]http.Header{ApiHeadersBase, ApiHeadersMetaAdditional},
 		time.Second * 10,
 	)
-	if err != nil {
-		return meta, err
-	}
+	if err != nil { return meta, err }
 	// Title
 	json.Unmarshal(info_data, &meta)
 	meta.Title = strings.ToValidUTF8(meta.Title, "")
@@ -140,13 +139,14 @@ func GetStreamEpisodeMeta(episode string, chapterIdx int) (StreamEpisodeMeta, er
 	} else {
 		meta.ProposedFilename = sanitizeUnicodeFilename(meta.Title) + ".ts"
 	}
-	// Sort Chapters & correct offset
-	for i := range meta.Chapters {
-		meta.Chapters[i].Offset = meta.Chapters[i].Offset * time.Second
-	}
+	// Sort Chapters, correct offset and set index
 	sort.Slice(meta.Chapters, func(i int, j int) bool {
 		return meta.Chapters[i].Offset < meta.Chapters[j].Offset
 	})
+	for i := range meta.Chapters {
+		meta.Chapters[i].Offset = meta.Chapters[i].Offset * time.Second
+		meta.Chapters[i].Index = i
+	}
 	// Formats
 	playlist_url_data, err := httpGet(
 		fmt.Sprintf(ApiBaseurlStreamEpisodePlInfo, episode),

@@ -3,13 +3,94 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"time"
 )
 
-type Cli struct {}
+type JsonProgress struct {
+	MsgType string `json:"type"`
+	Percentage float32 `json:"progress"`
+	Rate float64 `json:"rate"`
+	Delaying bool `json:"delaying"`
+	Waiting bool `json:"waiting"`
+	Retries int `json:"retries"`
+}
+
+type JsonTitle struct {
+	MsgType string `json:"type"`
+	Title string `json:"title"`
+}
+
+type JsonFormat struct {
+	MsgType string `json:"type"`
+	Format string `json:"format"`
+}
+
+type JsonAvailableFormats struct {
+	MsgType string `json:"type"`
+	Formats []VideoFormat `json:"formats"`
+}
+
+type JsonAvailableChapters struct {
+	MsgType string `json:"type"`
+	Chapters []Chapter `json:"chapters"`
+}
+
+type JsonInfo struct {
+	MsgType string `json:"type"`
+	Message string `json:"message"`
+}
+
+type JsonError struct {
+	MsgType string `json:"type"`
+	Message string `json:"message"`
+	Error error `json:"error"`
+}
+
+type JsonUnknown struct {
+	MsgType string `json:"type"`
+	Message any `json:"message"`
+}
+
+func PrintJson(msg any) {
+	var m any = JsonUnknown{MsgType: "unknown", Message: msg} // default
+	switch v := msg.(type) {
+	case JsonProgress:
+		v.MsgType = "progress"
+		m = v
+	case JsonTitle:
+		v.MsgType = "title"
+		m = v
+	case JsonFormat:
+		v.MsgType = "format"
+		m = v
+	case JsonAvailableFormats:
+		v.MsgType = "available_formats"
+		m = v
+	case JsonAvailableChapters:
+		v.MsgType = "available_chapters"
+		m = v
+	case JsonInfo:
+		v.MsgType = "info"
+		m = v
+	case JsonError:
+		v.MsgType = "error"
+		m = v
+	}
+	encoded, err := json.Marshal(m)
+	if err != nil {
+		fmt.Println("{\"type\":\"error\",\"message\":\"Couldn't convert output to json\",\"error\":{}}")
+	} else {
+		fmt.Println(string(encoded))
+	}
+}
+
+type Cli struct {
+	jsonOutput bool
+}
 
 func (cli *Cli) Run() {
 	// cli arguments
@@ -37,6 +118,7 @@ func (cli *Cli) Run() {
 	flag.StringVar(&timestampStop, "stop", "", "")
 	flag.BoolVar(&overwrite, "overwrite", false, "")
 	flag.BoolVar(&continueDl, "continue", false, "")
+	flag.BoolVar(&cli.jsonOutput, "json", false, "")
 	flag.Usage = cli.Help
 	flag.Parse()
 	var startDuration time.Duration
@@ -47,7 +129,7 @@ func (cli *Cli) Run() {
 	} else {
 		startDuration, err = time.ParseDuration(timestampStart)
 		if err != nil {
-			fmt.Printf("Couldn't parse start timestamp '%v'.\n%v\n", timestampStart, err)
+			cli.ErrorMessage(fmt.Sprintf("Couldn't parse start timestamp '%v'", timestampStart), err)
 			os.Exit(1)
 		}
 	}
@@ -56,7 +138,7 @@ func (cli *Cli) Run() {
 	} else {
 		stopDuration, err = time.ParseDuration(timestampStop)
 		if err != nil {
-			fmt.Printf("Couldn't parse stop timestamp '%v'.\n%v\n", timestampStop, err)
+			cli.ErrorMessage(fmt.Sprintf("Couldn't parse stop timestamp '%v'", timestampStop), err)
 			os.Exit(1)
 		}
 	}
@@ -71,90 +153,148 @@ func (cli *Cli) Run() {
 	}
 	video, err := ParseGtvVideoUrl(url)
 	if err != nil {
-		fmt.Println(err)
+		cli.ErrorMessage(fmt.Sprint(err), err)
 		os.Exit(1)
 	}
 	if video.Category != "streams" {
-		fmt.Println("Video category '" + video.Category + "' not supported.")
+		if cli.jsonOutput {
+			PrintJson(JsonError{Message: "Video category '" + video.Category + "' not supported"})
+		} else {
+			fmt.Println("Video category '" + video.Category + "' not supported.")
+		}
 		os.Exit(1)
 	}
 	meta, err := GetStreamEpisodeMeta(video.Id, chapterIdx)
 	if err != nil {
-		fmt.Println(err)
+		cli.ErrorMessage(fmt.Sprint(err), err)
 		os.Exit(1)
 	}
-	if listChapters || listFormats {
+	if cli.jsonOutput {
+		PrintJson(JsonTitle{Title: meta.Title})
+	} else {
 		fmt.Println(meta.Title)
+	}
+	if listChapters || listFormats {
 		if listChapters {
-			fmt.Print("\n")
-			cli.Chapters(meta.Chapters)
+			if !cli.jsonOutput { fmt.Print("\n") }
+			cli.AvailableChapters(meta.Chapters)
 		}
 		if listFormats {
-			fmt.Print("\n")
+			if !cli.jsonOutput { fmt.Print("\n") }
 			cli.AvailableFormats(meta.Formats)
 		}
 		os.Exit(0)
 	}
 	if chapterIdx >= 0 {
 		if chapterIdx >= len(meta.Chapters) {
-			fmt.Printf("Chapter %v not found.\n", chapterNum)
+			cli.ErrorMessage(fmt.Sprintf("Chapter %v not found", chapterNum), nil)
 			os.Exit(1)
 		}
 	}
 	format, err := meta.GetFormat(formatName)
 	if err != nil {
-		fmt.Println(err)
-		cli.AvailableFormats(meta.Formats)
+		cli.ErrorMessage(fmt.Sprint(err), err)
+		if !cli.jsonOutput {
+			cli.AvailableFormats(meta.Formats)
+		}
 		os.Exit(1)
 	}
-	fmt.Printf("%v\nFormat: %v\n", meta.Title, format.Name)
+	cli.Format(format)
 	if chapterIdx >= 0 {
-		fmt.Printf("Chapter: %v. %v\n", chapterNum, meta.Chapters[chapterIdx].Title)
+		cli.InfoMessage(fmt.Sprintf("Chapter: %v. %v", chapterNum, meta.Chapters[chapterIdx].Title))
 	}
-	defer fmt.Print("\n")
+	if !cli.jsonOutput { defer fmt.Print("\n") }
 	if err = DownloadStreamEpisode(meta, format, chapterIdx, startDuration, stopDuration, outputFile, overwrite, continueDl, cli); err != nil {
-		fmt.Print("\n")
-		fmt.Println(err)
+		if !cli.jsonOutput { fmt.Print("\n") }
+		cli.ErrorMessage(fmt.Sprint(err), err)
 		os.Exit(1)
 	}
 }
 
-func (cli *Cli) Chapters(chapters []Chapter) {
-	fmt.Println("Chapters:")
-	for i, f := range chapters {
-		fmt.Printf("%3d %10s\t%s\n", i+1, f.Offset, f.Title)
+func (cli *Cli) AvailableChapters(chapters []Chapter) {
+	if cli.jsonOutput {
+		PrintJson(JsonAvailableChapters{Chapters: chapters})
+	} else {
+		fmt.Println("Chapters:")
+		for _, f := range chapters {
+			fmt.Printf("%3d %10s\t%s\n", f.Index+1, f.Offset, f.Title)
+		}
 	}
 }
 
 func (cli *Cli) AvailableFormats(formats []VideoFormat) {
-	fmt.Println("Available formats:")
-	for _, f := range formats {
-		fmt.Println(" - " + f.Name)
+	if cli.jsonOutput {
+		PrintJson(JsonAvailableFormats{Formats: formats})
+	} else {
+		fmt.Println("Available formats:")
+		for _, f := range formats {
+			fmt.Println(" - " + f.Name)
+		}
+	}
+}
+
+func (cli *Cli) Format(format VideoFormat) {
+	if cli.jsonOutput {
+		PrintJson(JsonFormat{Format: format.Name})
+	} else {
+		fmt.Printf("Format: %v\n", format.Name)
 	}
 }
 
 func (cli *Cli) Progress(percentage float32, rate float64, delaying bool, waiting bool, retries int) {
-	if retries > 0 {
-		fmt.Printf("\nDownloaded %.2f%% at %.2f MB/s (retry %v) ...      \r", percentage * 100.0, rate / 1000000.0, retries)
-	} else if waiting {
-		fmt.Printf("Downloaded %.2f%% at %.2f MB/s ...                 \r", percentage * 100.0, rate / 1000000.0)
-	} else if delaying {
-		fmt.Printf("Downloaded %.2f%% at %.2f MB/s delaying ...        \r", percentage * 100.0, rate / 1000000.0)
+	if cli.jsonOutput {
+		PrintJson(
+			JsonProgress{
+				Percentage: percentage,
+				Rate: rate,
+				Delaying: delaying,
+				Waiting: waiting,
+				Retries: retries,
+			})
 	} else {
-		fmt.Printf("Downloaded %.2f%% at %.2f MB/s                     \r", percentage * 100.0, rate / 1000000.0)
+		if retries > 0 {
+			fmt.Printf("\nDownloaded %.2f%% at %.2f MB/s (retry %v) ...      \r", percentage * 100.0, rate / 1000000.0, retries)
+		} else if waiting {
+			fmt.Printf("Downloaded %.2f%% at %.2f MB/s ...                 \r", percentage * 100.0, rate / 1000000.0)
+		} else if delaying {
+			fmt.Printf("Downloaded %.2f%% at %.2f MB/s delaying ...        \r", percentage * 100.0, rate / 1000000.0)
+		} else {
+			fmt.Printf("Downloaded %.2f%% at %.2f MB/s                     \r", percentage * 100.0, rate / 1000000.0)
+		}
 	}
 }
 
 func (cli *Cli) InfoMessage(msg string) {
-	fmt.Println(msg)
+	if cli.jsonOutput {
+		PrintJson(JsonInfo{Message: msg})
+	} else {
+		fmt.Println(msg)
+	}
+}
+
+func (cli *Cli) ErrorMessage(msg string, err error) {
+	if cli.jsonOutput {
+		PrintJson(JsonError{Message: msg, Error: err})
+	} else {
+		if msg != "" {
+			fmt.Println(msg)
+		}
+	}
 }
 
 func (cli *Cli) Aborted() {
-	fmt.Print("\nAborted.                                                ")
+	if cli.jsonOutput {
+		PrintJson(JsonError{Message: "aborted"})
+	} else {
+		fmt.Print("\nAborted.                                                ")
+	}
 }
 
 func (cli *Cli) Help() {
-	fmt.Println(`lurch-dl --url string       The url to the video
+	if cli.jsonOutput {
+		PrintJson(JsonError{Message: "Not printing help text in json output mode"})
+	} else {
+		fmt.Println(`lurch-dl --url string       The url to the video
          [-h --help]        Show this help and exit
          [--list-chapters]  List chapters and exit
          [--list-formats]   List available formats and exit
@@ -170,6 +310,8 @@ func (cli *Cli) Help() {
          [--stop string]    Define a video timestamp to stop at, e.g. 1h23m45s
          [--continue]       Continue the download if possible
          [--overwrite]      Overwrite the output file if it already exists
+         [--json]           Provide all terminal output in json format
 
 Version: ` + Version)
+	}
 }
