@@ -49,7 +49,7 @@ func (err *FileExistsError) Error() string {
 
 const MaxRetries = 5
 
-func DownloadStreamEpisode(episodeMeta StreamEpisodeMeta, format VideoFormat, chapterIdx int, start time.Duration, stop time.Duration, filename string, overwrite bool, continueDl bool, ui UserInterface) error {
+func DownloadStreamEpisode(episodeMeta StreamEpisodeMeta, format VideoFormat, chapterIdx int, start time.Duration, stop time.Duration, filename string, overwrite bool, continueDl bool, cli *Cli) error {
 	var err error
 	var nextChunk int = 0
 	// video file
@@ -76,7 +76,7 @@ func DownloadStreamEpisode(episodeMeta StreamEpisodeMeta, format VideoFormat, ch
 	if continueDl {
 		infoFileData, err := os.ReadFile(infoFilename)
 		if err != nil {
-			ui.ErrorMessage(fmt.Sprint(err), err)
+			cli.ErrorMessage(fmt.Sprint(err), err)
 			return errors.New("could not access download info file, can't continue download")
 		}
 		i, err := strconv.ParseInt(string(infoFileData), 10, 32)
@@ -111,7 +111,7 @@ func DownloadStreamEpisode(episodeMeta StreamEpisodeMeta, format VideoFormat, ch
 		return err
 	}
 	var bufferDt float64
-	var percentage float32
+	var progress float32
 	var actualRate float64
 	keyboardInterrupt := false
 	keyboardInterruptChan := make(chan os.Signal, 1)
@@ -120,8 +120,8 @@ func DownloadStreamEpisode(episodeMeta StreamEpisodeMeta, format VideoFormat, ch
 		// Handle Keyboard Interrupts
 		<-keyboardInterruptChan
 		keyboardInterrupt = true
-		ui.Progress(percentage, actualRate, false, false, 0);
-		ui.Aborted()
+		cli.Progress(progress, actualRate, false, false, 0);
+		cli.Aborted()
 	}()
 	for i, chunk := range chunklist.Chunks {
 		if i < nextChunk { continue }
@@ -131,7 +131,7 @@ func DownloadStreamEpisode(episodeMeta StreamEpisodeMeta, format VideoFormat, ch
 		for {
 			if keyboardInterrupt { break }
 			time1 = time.Now().UnixNano()
-			ui.Progress(percentage, actualRate, false, true, retries)
+			cli.Progress(progress, actualRate, false, true, retries)
 			data, err = httpGet(chunklist.BaseUrl + "/" + chunk, []http.Header{ApiHeadersBase, ApiHeadersVideoAdditional}, time.Second * 5)
 			if err != nil {
 				if retries == MaxRetries {
@@ -146,9 +146,9 @@ func DownloadStreamEpisode(episodeMeta StreamEpisodeMeta, format VideoFormat, ch
 		var dtDownload float64 = float64(time.Now().UnixNano() - time1) / 1000000000.0
 		rate := float64(len(data)) / dtDownload
 		actualRate = rate - max(rate - Ratelimit, 0)
-		percentage = float32(i+1) / float32(len(chunklist.Chunks))
+		progress = float32(i+1) / float32(len(chunklist.Chunks))
 		delayNow := bufferDt > RatelimitDelayAfter
-		ui.Progress(percentage, actualRate, delayNow, false, retries)
+		cli.Progress(progress, actualRate, delayNow, false, retries)
 		if delayNow {
 			bufferDt = 0
 			// this simulates that the buffering is finished and the player is playing

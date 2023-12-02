@@ -12,7 +12,7 @@ import (
 
 type JsonProgress struct {
 	MsgType string `json:"type"`
-	Percentage float32 `json:"progress"`
+	Progress float32 `json:"progress"`
 	Rate float64 `json:"rate"`
 	Delaying bool `json:"delaying"`
 	Waiting bool `json:"waiting"`
@@ -56,6 +56,7 @@ type JsonUnknown struct {
 }
 
 func PrintJson(msg any) {
+	outputFile := os.Stdout
 	var m any = JsonUnknown{MsgType: "unknown", Message: msg} // default
 	switch v := msg.(type) {
 	case JsonProgress:
@@ -79,12 +80,13 @@ func PrintJson(msg any) {
 	case JsonError:
 		v.MsgType = "error"
 		m = v
+		outputFile = os.Stderr
 	}
 	encoded, err := json.Marshal(m)
 	if err != nil {
-		fmt.Println("{\"type\":\"error\",\"message\":\"Couldn't convert output to json\",\"error\":{}}")
+		fmt.Fprintln(os.Stderr, "{\"type\":\"error\",\"message\":\"Couldn't convert output to json\",\"error\":{}}")
 	} else {
-		fmt.Println(string(encoded))
+		fmt.Fprintln(outputFile, string(encoded))
 	}
 }
 
@@ -241,11 +243,11 @@ func (cli *Cli) Format(format VideoFormat) {
 	}
 }
 
-func (cli *Cli) Progress(percentage float32, rate float64, delaying bool, waiting bool, retries int) {
+func (cli *Cli) Progress(progress float32, rate float64, delaying bool, waiting bool, retries int) {
 	if cli.jsonOutput {
 		PrintJson(
 			JsonProgress{
-				Percentage: percentage,
+				Progress: progress,
 				Rate: rate,
 				Delaying: delaying,
 				Waiting: waiting,
@@ -253,13 +255,13 @@ func (cli *Cli) Progress(percentage float32, rate float64, delaying bool, waitin
 			})
 	} else {
 		if retries > 0 {
-			fmt.Printf("\nDownloaded %.2f%% at %.2f MB/s (retry %v) ...      \r", percentage * 100.0, rate / 1000000.0, retries)
+			fmt.Printf("\nDownloaded %.2f%% at %.2f MB/s (retry %v) ...      \r", progress * 100.0, rate / 1000000.0, retries)
 		} else if waiting {
-			fmt.Printf("Downloaded %.2f%% at %.2f MB/s ...                 \r", percentage * 100.0, rate / 1000000.0)
+			fmt.Printf("Downloaded %.2f%% at %.2f MB/s ...                 \r", progress * 100.0, rate / 1000000.0)
 		} else if delaying {
-			fmt.Printf("Downloaded %.2f%% at %.2f MB/s delaying ...        \r", percentage * 100.0, rate / 1000000.0)
+			fmt.Printf("Downloaded %.2f%% at %.2f MB/s delaying ...        \r", progress * 100.0, rate / 1000000.0)
 		} else {
-			fmt.Printf("Downloaded %.2f%% at %.2f MB/s                     \r", percentage * 100.0, rate / 1000000.0)
+			fmt.Printf("Downloaded %.2f%% at %.2f MB/s                     \r", progress * 100.0, rate / 1000000.0)
 		}
 	}
 }
