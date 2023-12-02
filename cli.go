@@ -259,7 +259,7 @@ func (cli *Cli) Progress(progress float32, rate float64, delaying bool, waiting 
 		} else if waiting {
 			fmt.Printf("Downloaded %.2f%% at %.2f MB/s ...                 \r", progress * 100.0, rate / 1000000.0)
 		} else if delaying {
-			fmt.Printf("Downloaded %.2f%% at %.2f MB/s delaying ...        \r", progress * 100.0, rate / 1000000.0)
+			fmt.Printf("Downloaded %.2f%% at %.2f MB/s (delaying) ...      \r", progress * 100.0, rate / 1000000.0)
 		} else {
 			fmt.Printf("Downloaded %.2f%% at %.2f MB/s                     \r", progress * 100.0, rate / 1000000.0)
 		}
