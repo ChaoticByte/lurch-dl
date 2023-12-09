@@ -117,7 +117,7 @@ func DownloadStreamEpisode(episodeMeta StreamEpisodeMeta, format VideoFormat, ch
 		// Handle Keyboard Interrupts
 		<-keyboardInterruptChan
 		keyboardInterrupt = true
-		cli.Progress(progress, actualRate, false, false, 0);
+		cli.Progress(progress, actualRate, false, false, 0, episodeMeta.Title);
 		cli.Aborted()
 	}()
 	for i, chunk := range chunklist.Chunks {
@@ -128,7 +128,7 @@ func DownloadStreamEpisode(episodeMeta StreamEpisodeMeta, format VideoFormat, ch
 		for {
 			if keyboardInterrupt { break }
 			time1 = time.Now().UnixNano()
-			cli.Progress(progress, actualRate, false, true, retries)
+			cli.Progress(progress, actualRate, false, true, retries, episodeMeta.Title)
 			data, err = httpGet(chunklist.BaseUrl + "/" + chunk, []http.Header{ApiHeadersBase, ApiHeadersVideoAdditional}, time.Second * 5)
 			if err != nil {
 				if retries == MaxRetries {
@@ -145,7 +145,7 @@ func DownloadStreamEpisode(episodeMeta StreamEpisodeMeta, format VideoFormat, ch
 		actualRate = rate - max(rate - ratelimit, 0)
 		progress = float32(i+1) / float32(len(chunklist.Chunks))
 		delayNow := bufferDt > RatelimitDelayAfter
-		cli.Progress(progress, actualRate, delayNow, false, retries)
+		cli.Progress(progress, actualRate, delayNow, false, retries, episodeMeta.Title)
 		if delayNow {
 			bufferDt = 0
 			// this simulates that the buffering is finished and the player is playing

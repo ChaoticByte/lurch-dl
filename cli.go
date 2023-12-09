@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -90,8 +91,15 @@ func PrintJson(msg any) {
 	}
 }
 
+// Escape Sequences
+
+const EscXtermSetTitle = "\033]2;%s\007"
+
+//
+
 type Cli struct {
 	jsonOutput bool
+	xtermTitle bool
 }
 
 func (cli *Cli) Run() {
@@ -125,6 +133,21 @@ func (cli *Cli) Run() {
 	flag.BoolVar(&cli.jsonOutput, "json", false, "")
 	flag.Usage = cli.Help
 	flag.Parse()
+	// detect terminal type and set variables accordingly
+	if !cli.jsonOutput {
+		for _, entry := range os.Environ() {
+			kv := strings.Split(entry, "=")
+			if len(kv) > 1 && kv[0] == "TERM" {
+				if strings.Contains(kv[1], "xterm") ||
+				   strings.Contains(kv[1], "rxvt")  ||
+				   strings.Contains(kv[1], "alacritty") {
+					cli.xtermTitle = true
+					break
+				}
+			}
+		}
+	}
+	//
 	var startDuration time.Duration
 	var stopDuration time.Duration
 	var err error
@@ -173,6 +196,7 @@ func (cli *Cli) Run() {
 		}
 		os.Exit(1)
 	}
+	if !cli.jsonOutput { fmt.Printf(EscXtermSetTitle, "lurch-dl - Fetching video metadata ...") }
 	meta, err := GetStreamEpisodeMeta(video.Id, chapterIdx)
 	if err != nil {
 		cli.ErrorMessage(fmt.Sprint(err), err)
@@ -250,7 +274,7 @@ func (cli *Cli) Format(format VideoFormat) {
 	}
 }
 
-func (cli *Cli) Progress(progress float32, rate float64, delaying bool, waiting bool, retries int) {
+func (cli *Cli) Progress(progress float32, rate float64, delaying bool, waiting bool, retries int, title string) {
 	if cli.jsonOutput {
 		PrintJson(
 			JsonProgress{
@@ -269,6 +293,9 @@ func (cli *Cli) Progress(progress float32, rate float64, delaying bool, waiting 
 			fmt.Printf("Downloaded %.2f%% at %.2f MB/s (delaying) ...      \r", progress * 100.0, rate / 1000000.0)
 		} else {
 			fmt.Printf("Downloaded %.2f%% at %.2f MB/s                     \r", progress * 100.0, rate / 1000000.0)
+		}
+		if cli.xtermTitle {
+			fmt.Printf(EscXtermSetTitle, fmt.Sprintf("lurch-dl - Downloaded %.2f%% at %.2f MB/s - %v", progress * 100.0, rate / 1000000.0, title))
 		}
 	}
 }

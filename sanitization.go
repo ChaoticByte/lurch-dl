@@ -10,7 +10,7 @@ import (
 var FnInvalidRunes = []rune("/<>:\"\\|?*")
 
 func sanitizeUnicodeFilename(filename string) string {
-	filename = strings.Trim(strings.ToValidUTF8(filename, ""), " \u00A0\t\n\r.")
+	filename = strings.Trim(strings.ToValidUTF8(filename, ""), " \033\007\u00A0\t\n\r.")
 	var filenameBuilder strings.Builder
 	for _, r := range filename {
 		isInvalid := !unicode.IsPrint(r)
