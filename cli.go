@@ -107,6 +107,7 @@ func (cli *Cli) Run() {
 	var timestampStop string
 	var overwrite bool
 	var continueDl bool
+	var ratelimit float64
 	// var outputFile string
 	flag.BoolVar(&help, "h", false, "")
 	flag.BoolVar(&help, "help", false, "")
@@ -120,12 +121,18 @@ func (cli *Cli) Run() {
 	flag.StringVar(&timestampStop, "stop", "", "")
 	flag.BoolVar(&overwrite, "overwrite", false, "")
 	flag.BoolVar(&continueDl, "continue", false, "")
+	flag.Float64Var(&ratelimit, "max-rate", 10.0, "")
 	flag.BoolVar(&cli.jsonOutput, "json", false, "")
 	flag.Usage = cli.Help
 	flag.Parse()
 	var startDuration time.Duration
 	var stopDuration time.Duration
 	var err error
+	if ratelimit <= 0 {
+		cli.ErrorMessage("The value of --max-rate must be greater than 0", nil)
+		os.Exit(1)
+	}
+	ratelimit *= 1_000_000.0 // MB
 	if timestampStart == "" {
 		startDuration = -1
 	} else {
@@ -206,7 +213,7 @@ func (cli *Cli) Run() {
 		cli.InfoMessage(fmt.Sprintf("Chapter: %v. %v", chapterNum, meta.Chapters[chapterIdx].Title))
 	}
 	if !cli.jsonOutput { defer fmt.Print("\n") }
-	if err = DownloadStreamEpisode(meta, format, chapterIdx, startDuration, stopDuration, outputFile, overwrite, continueDl, cli); err != nil {
+	if err = DownloadStreamEpisode(meta, format, chapterIdx, startDuration, stopDuration, outputFile, overwrite, continueDl, ratelimit, cli); err != nil {
 		if !cli.jsonOutput { fmt.Print("\n") }
 		cli.ErrorMessage(fmt.Sprint(err), err)
 		os.Exit(1)
@@ -312,6 +319,10 @@ func (cli *Cli) Help() {
          [--stop string]    Define a video timestamp to stop at, e.g. 1h23m45s
          [--continue]       Continue the download if possible
          [--overwrite]      Overwrite the output file if it already exists
+         [--max-rate]       The maximum download rate in MB/s - don't set this
+                            too high, you may run into a ratelimit and your
+                            IP address might get banned from the servers.
+                            default: 10.0
          [--json]           Provide all terminal output in json format
 
 Version: ` + Version)

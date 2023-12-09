@@ -16,7 +16,7 @@
 
 ## Known Issues
 
-- Downloads are capped to 10 Mbyte/s and buffering is simulated to pre-empt IP blocking due to API ratelimiting
+- Downloads are capped to 10 Mbyte/s and buffering is simulated to pre-empt IP blocking due to API ratelimiting (can be overwritten with `--max-rate`)
 - Start- and stop-timestamps are not very accurate (± 8 seconds)
 - Some videoplayers may have problems with the resulting file. To fix this, you can use ffmpeg to rewrite the video into a MKV-File: `ffmpeg -i video.ts -acodec copy -vcodec copy video.mkv`
 - Emojis and other Unicode characters don't get displayed properly in a Powershell Console
@@ -55,6 +55,10 @@ lurch-dl --url string       The url to the video
          [--stop string]    Define a video timestamp to stop at, e.g. 1h23m45s
          [--continue]       Continue the download if possible
          [--overwrite]      Overwrite the output file if it already exists
+         [--max-rate]       The maximum download rate in MB/s - don't set this
+                            too high, you may run into a ratelimit and your
+                            IP address might get banned from the servers.
+                            default: 10.0
          [--json]           Provide all terminal output in json format
 ```
 

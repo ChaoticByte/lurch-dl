@@ -16,7 +16,7 @@
 
 ## Bekannte Probleme
 
-- Downloads können mit maximal 10 Mbyte/s heruntergeladen werden, zudem wird Buffering simuliert. Das ist notwendig um IP-Bans durch API-Ratelimits zu verhindern.
+- Downloads können mit maximal 10 Mbyte/s heruntergeladen werden, zudem wird Buffering simuliert. Das ist notwendig um IP-Bans durch API-Ratelimits zu verhindern. (Kann mit `--max-rate` überschrieben werden)
 - Bei Start- und Stop-Timestamps kann es zu Abweichungen von ± 8 Sekunden kommen
 - Manche Video-Player könnten mit der heruntergeladenen Videodatei Probleme haben. Dies kann mit FFMPEG behoben werden, indem das Video in eine MKV-Datei umgeschrieben wird: `ffmpeg -i video.ts -acodec copy -vcodec copy video.mkv`
 - In der Powershell-Konsole werden Emojis und andere Unicode-Zeichen nicht richtig dargestellt
@@ -55,6 +55,11 @@ lurch-dl --url string       Die URL zum Video
          [--stop string]    Stop-Timestamp, z.B. 1h23m45s
          [--continue]       Download fortsetzen, wenn möglich
          [--overwrite]      Datei überschreiben, wenn diese bereits existiert
+         [--max-rate]       Die maximale Downloadrate in MB/s - dieser Wert
+                            sollte nicht zu hoch gesetzt werden, da die Gefahr
+                            eines IP-Bans aufgrund von Ratelimits seitens der
+                            Server besteht
+                            default: 10.0
          [--json]           Terminal-Ausgabe in JSON-Format
 ```
 

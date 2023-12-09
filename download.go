@@ -14,9 +14,6 @@ import (
 	"time"
 )
 
-// "Bist du sauer?" :D
-// Don't download too fast, we don't want the servers to get angry at us.
-const Ratelimit = 10000000.0 // in Mbyte/s
 // The following two values are used to simulate buffering
 const RatelimitDelay = 2.0 // in Seconds; How long to delay the next chunk download.
 const RatelimitDelayAfter = 5.0 // in Seconds; Delay the next chunk download after this duration.
@@ -49,7 +46,7 @@ func (err *FileExistsError) Error() string {
 
 const MaxRetries = 5
 
-func DownloadStreamEpisode(episodeMeta StreamEpisodeMeta, format VideoFormat, chapterIdx int, start time.Duration, stop time.Duration, filename string, overwrite bool, continueDl bool, cli *Cli) error {
+func DownloadStreamEpisode(episodeMeta StreamEpisodeMeta, format VideoFormat, chapterIdx int, start time.Duration, stop time.Duration, filename string, overwrite bool, continueDl bool, ratelimit float64, cli *Cli) error {
 	var err error
 	var nextChunk int = 0
 	// video file
@@ -145,7 +142,7 @@ func DownloadStreamEpisode(episodeMeta StreamEpisodeMeta, format VideoFormat, ch
 		if keyboardInterrupt { break }
 		var dtDownload float64 = float64(time.Now().UnixNano() - time1) / 1000000000.0
 		rate := float64(len(data)) / dtDownload
-		actualRate = rate - max(rate - Ratelimit, 0)
+		actualRate = rate - max(rate - ratelimit, 0)
 		progress = float32(i+1) / float32(len(chunklist.Chunks))
 		delayNow := bufferDt > RatelimitDelayAfter
 		cli.Progress(progress, actualRate, delayNow, false, retries)
@@ -153,9 +150,9 @@ func DownloadStreamEpisode(episodeMeta StreamEpisodeMeta, format VideoFormat, ch
 			bufferDt = 0
 			// this simulates that the buffering is finished and the player is playing
 			time.Sleep(time.Duration(RatelimitDelay * float64(time.Second)))
-		} else if rate > Ratelimit {
+		} else if rate > ratelimit {
 			// slow down, we are too fast.
-			deferTime := (rate - Ratelimit) / Ratelimit * dtDownload
+			deferTime := (rate - ratelimit) / ratelimit * dtDownload
 			time.Sleep(time.Duration(deferTime * float64(time.Second)))
 		}
 		videoFile.Write(data)
