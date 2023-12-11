@@ -37,8 +37,8 @@ func parseAvailFormatsFromM3u8(m3u8 string) []VideoFormat {
 
 var targetDurationRegex = regexp.MustCompile(`#EXT-X-TARGETDURATION:(.+)`)
 
-func parseChunkListFromM3u8(m3u8 string, baseurl string) (VideoChunkList, error) {
-	chunklist := VideoChunkList{BaseUrl: baseurl}
+func parseChunkListFromM3u8(m3u8 string, baseurl string) (ChunkList, error) {
+	chunklist := ChunkList{BaseUrl: baseurl}
 	m3u8 = strings.ReplaceAll(m3u8, "\r", "")
 	parts := strings.Split(m3u8, "#EXTINF")
 	for _, p := range parts {

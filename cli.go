@@ -11,89 +11,11 @@ import (
 	"time"
 )
 
-type JsonProgress struct {
-	MsgType string `json:"type"`
-	Progress float32 `json:"progress"`
-	Rate float64 `json:"rate"`
-	Delaying bool `json:"delaying"`
-	Waiting bool `json:"waiting"`
-	Retries int `json:"retries"`
+//
+
+func XtermSetTitle(title string) {
+	fmt.Printf("\033]2;%s\007", title)
 }
-
-type JsonTitle struct {
-	MsgType string `json:"type"`
-	Title string `json:"title"`
-}
-
-type JsonFormat struct {
-	MsgType string `json:"type"`
-	Format string `json:"format"`
-}
-
-type JsonAvailableFormats struct {
-	MsgType string `json:"type"`
-	Formats []VideoFormat `json:"formats"`
-}
-
-type JsonAvailableChapters struct {
-	MsgType string `json:"type"`
-	Chapters []Chapter `json:"chapters"`
-}
-
-type JsonInfo struct {
-	MsgType string `json:"type"`
-	Message string `json:"message"`
-}
-
-type JsonError struct {
-	MsgType string `json:"type"`
-	Message string `json:"message"`
-	Error error `json:"error"`
-}
-
-type JsonUnknown struct {
-	MsgType string `json:"type"`
-	Message any `json:"message"`
-}
-
-func PrintJson(msg any) {
-	outputFile := os.Stdout
-	var m any = JsonUnknown{MsgType: "unknown", Message: msg} // default
-	switch v := msg.(type) {
-	case JsonProgress:
-		v.MsgType = "progress"
-		m = v
-	case JsonTitle:
-		v.MsgType = "title"
-		m = v
-	case JsonFormat:
-		v.MsgType = "format"
-		m = v
-	case JsonAvailableFormats:
-		v.MsgType = "available_formats"
-		m = v
-	case JsonAvailableChapters:
-		v.MsgType = "available_chapters"
-		m = v
-	case JsonInfo:
-		v.MsgType = "info"
-		m = v
-	case JsonError:
-		v.MsgType = "error"
-		m = v
-		outputFile = os.Stderr
-	}
-	encoded, err := json.Marshal(m)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "{\"type\":\"error\",\"message\":\"Couldn't convert output to json\",\"error\":{}}")
-	} else {
-		fmt.Fprintln(outputFile, string(encoded))
-	}
-}
-
-// Escape Sequences
-
-const EscXtermSetTitle = "\033]2;%s\007"
 
 //
 
@@ -196,48 +118,52 @@ func (cli *Cli) Run() {
 		}
 		os.Exit(1)
 	}
-	if !cli.jsonOutput { fmt.Printf(EscXtermSetTitle, "lurch-dl - Fetching video metadata ...") }
-	meta, err := GetStreamEpisodeMeta(video.Id, chapterIdx)
+	if !cli.jsonOutput && cli.xtermTitle { XtermSetTitle("lurch-dl - Fetching video metadata ...") }
+	streamEp, err := GetStreamEpisode(video.Id, chapterIdx)
 	if err != nil {
 		cli.ErrorMessage(fmt.Sprint(err), err)
 		os.Exit(1)
 	}
 	if cli.jsonOutput {
-		PrintJson(JsonTitle{Title: meta.Title})
+		PrintJson(JsonTitle{Title: streamEp.Title})
 	} else {
-		fmt.Println(meta.Title)
+		fmt.Println(streamEp.Title)
 	}
 	if listChapters || listFormats {
 		if listChapters {
 			if !cli.jsonOutput { fmt.Print("\n") }
-			cli.AvailableChapters(meta.Chapters)
+			cli.AvailableChapters(streamEp.Chapters)
 		}
 		if listFormats {
 			if !cli.jsonOutput { fmt.Print("\n") }
-			cli.AvailableFormats(meta.Formats)
+			cli.AvailableFormats(streamEp.Formats)
 		}
 		os.Exit(0)
 	}
 	if chapterIdx >= 0 {
-		if chapterIdx >= len(meta.Chapters) {
+		if chapterIdx >= len(streamEp.Chapters) {
 			cli.ErrorMessage(fmt.Sprintf("Chapter %v not found", chapterNum), nil)
 			os.Exit(1)
 		}
 	}
-	format, err := meta.GetFormat(formatName)
+	formatIdx, err := streamEp.GetFormatIdx(formatName)
 	if err != nil {
 		cli.ErrorMessage(fmt.Sprint(err), err)
 		if !cli.jsonOutput {
-			cli.AvailableFormats(meta.Formats)
+			cli.AvailableFormats(streamEp.Formats)
 		}
 		os.Exit(1)
 	}
-	cli.Format(format)
+	if !cli.jsonOutput { fmt.Print("\n") }
+	cli.Format(streamEp.Formats[formatIdx])
 	if chapterIdx >= 0 {
-		cli.InfoMessage(fmt.Sprintf("Chapter: %v. %v", chapterNum, meta.Chapters[chapterIdx].Title))
+		cli.InfoMessage(fmt.Sprintf("Chapter: %v. %v", chapterNum, streamEp.Chapters[chapterIdx].Title))
 	}
-	if !cli.jsonOutput { defer fmt.Print("\n") }
-	if err = DownloadStreamEpisode(meta, format, chapterIdx, startDuration, stopDuration, outputFile, overwrite, continueDl, ratelimit, cli); err != nil {
+	if !cli.jsonOutput {
+		fmt.Print("\n")
+		defer fmt.Print("\n")
+	}
+	if err = streamEp.Download(formatIdx, chapterIdx, startDuration, stopDuration, outputFile, overwrite, continueDl, ratelimit, cli); err != nil {
 		if !cli.jsonOutput { fmt.Print("\n") }
 		cli.ErrorMessage(fmt.Sprint(err), err)
 		os.Exit(1)
@@ -295,7 +221,7 @@ func (cli *Cli) Progress(progress float32, rate float64, delaying bool, waiting 
 			fmt.Printf("Downloaded %.2f%% at %.2f MB/s                     \r", progress * 100.0, rate / 1000000.0)
 		}
 		if cli.xtermTitle {
-			fmt.Printf(EscXtermSetTitle, fmt.Sprintf("lurch-dl - Downloaded %.2f%% at %.2f MB/s - %v", progress * 100.0, rate / 1000000.0, title))
+			XtermSetTitle(fmt.Sprintf("lurch-dl - Downloaded %.2f%% at %.2f MB/s - %v", progress * 100.0, rate / 1000000.0, title))
 		}
 	}
 }
@@ -353,5 +279,85 @@ func (cli *Cli) Help() {
          [--json]           Provide all terminal output in json format
 
 Version: ` + Version)
+	}
+}
+
+type JsonProgress struct {
+	MsgType string `json:"type"`
+	Progress float32 `json:"progress"`
+	Rate float64 `json:"rate"`
+	Delaying bool `json:"delaying"`
+	Waiting bool `json:"waiting"`
+	Retries int `json:"retries"`
+}
+
+type JsonTitle struct {
+	MsgType string `json:"type"`
+	Title string `json:"title"`
+}
+
+type JsonFormat struct {
+	MsgType string `json:"type"`
+	Format string `json:"format"`
+}
+
+type JsonAvailableFormats struct {
+	MsgType string `json:"type"`
+	Formats []VideoFormat `json:"formats"`
+}
+
+type JsonAvailableChapters struct {
+	MsgType string `json:"type"`
+	Chapters []Chapter `json:"chapters"`
+}
+
+type JsonInfo struct {
+	MsgType string `json:"type"`
+	Message string `json:"message"`
+}
+
+type JsonError struct {
+	MsgType string `json:"type"`
+	Message string `json:"message"`
+	Error error `json:"error"`
+}
+
+type JsonUnknown struct {
+	MsgType string `json:"type"`
+	Message any `json:"message"`
+}
+
+func PrintJson(msg any) {
+	outputFile := os.Stdout
+	var m any = JsonUnknown{MsgType: "unknown", Message: msg} // default
+	switch v := msg.(type) {
+	case JsonProgress:
+		v.MsgType = "progress"
+		m = v
+	case JsonTitle:
+		v.MsgType = "title"
+		m = v
+	case JsonFormat:
+		v.MsgType = "format"
+		m = v
+	case JsonAvailableFormats:
+		v.MsgType = "available_formats"
+		m = v
+	case JsonAvailableChapters:
+		v.MsgType = "available_chapters"
+		m = v
+	case JsonInfo:
+		v.MsgType = "info"
+		m = v
+	case JsonError:
+		v.MsgType = "error"
+		m = v
+		outputFile = os.Stderr
+	}
+	encoded, err := json.Marshal(m)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "{\"type\":\"error\",\"message\":\"Couldn't convert output to json\",\"error\":{}}")
+	} else {
+		fmt.Fprintln(outputFile, string(encoded))
 	}
 }
