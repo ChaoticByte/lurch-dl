@@ -9,12 +9,24 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"golang.org/x/term"
 )
 
 //
 
 func XtermSetTitle(title string) {
 	fmt.Printf("\033]2;%s\007", title)
+}
+
+func DrawLine() {
+	terminalWidth, _, err := term.GetSize(0)
+	if err != nil { return }
+	r := ""
+	for i:=0; i<terminalWidth-1; i++ {
+		r += "─"
+	}
+	fmt.Println(r)
 }
 
 //
@@ -127,17 +139,19 @@ func (cli *Cli) Run() {
 	if cli.jsonOutput {
 		PrintJson(JsonTitle{Title: streamEp.Title})
 	} else {
+		DrawLine()
 		fmt.Println(streamEp.Title)
 	}
 	if listChapters || listFormats {
 		if listChapters {
-			if !cli.jsonOutput { fmt.Print("\n") }
+			if !cli.jsonOutput { DrawLine() }
 			cli.AvailableChapters(streamEp.Chapters)
 		}
 		if listFormats {
-			if !cli.jsonOutput { fmt.Print("\n") }
+			if !cli.jsonOutput { DrawLine() }
 			cli.AvailableFormats(streamEp.Formats)
 		}
+		if !cli.jsonOutput { DrawLine() }
 		os.Exit(0)
 	}
 	if chapterIdx >= 0 {
@@ -154,17 +168,16 @@ func (cli *Cli) Run() {
 		}
 		os.Exit(1)
 	}
-	if !cli.jsonOutput { fmt.Print("\n") }
+	if !cli.jsonOutput { DrawLine() }
 	cli.Format(streamEp.Formats[formatIdx])
 	if chapterIdx >= 0 {
 		cli.InfoMessage(fmt.Sprintf("Chapter: %v. %v", chapterNum, streamEp.Chapters[chapterIdx].Title))
 	}
 	if !cli.jsonOutput {
-		fmt.Print("\n")
+		DrawLine()
 		defer fmt.Print("\n")
 	}
 	if err = streamEp.Download(formatIdx, chapterIdx, startDuration, stopDuration, outputFile, overwrite, continueDl, ratelimit, cli); err != nil {
-		if !cli.jsonOutput { fmt.Print("\n") }
 		cli.ErrorMessage(fmt.Sprint(err), err)
 		os.Exit(1)
 	}
@@ -212,7 +225,9 @@ func (cli *Cli) Progress(progress float32, rate float64, delaying bool, waiting 
 			})
 	} else {
 		if retries > 0 {
-			fmt.Printf("\nDownloaded %.2f%% at %.2f MB/s (retry %v) ...      \r", progress * 100.0, rate / 1000000.0, retries)
+			if retries == 1 { fmt.Print("\n") }
+			fmt.Printf("Downloaded %.2f%% at %.2f MB/s (retry %v) ...      ", progress * 100.0, rate / 1000000.0, retries)
+			fmt.Print("\n")
 		} else if waiting {
 			fmt.Printf("Downloaded %.2f%% at %.2f MB/s ...                 \r", progress * 100.0, rate / 1000000.0)
 		} else if delaying {
