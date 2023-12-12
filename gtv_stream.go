@@ -55,48 +55,53 @@ func (ep *StreamEpisode) GetFormatIdx(formatName string) (int, error) {
 func (ep *StreamEpisode) Download(formatIdx int, chapterIdx int, start time.Duration, stop time.Duration, filename string, overwrite bool, continueDl bool, ratelimit float64, cli *Cli) error {
 	var err error
 	var nextChunk int = 0
-	// video file
-	if filename == "" {
-		filename = ep.ProposedFilename
-	}
-	if !overwrite && !continueDl {
-		if _, err := os.Stat(filename); err == nil {
-			return &FileExistsError{Filename: filename}
+	var videoFile *os.File
+	var infoFile *os.File
+	var infoFilename string
+	if !cli.jsonData {
+		// video file
+		if filename == "" {
+			filename = ep.ProposedFilename
 		}
-	}
-	videoFile, err := os.OpenFile(filename, os.O_RDWR | os.O_CREATE, 0660)
-	if err != nil {
-		return err
-	}
-	defer videoFile.Close()
-	if overwrite {
-		videoFile.Truncate(0)
-	}
-	// always seek to the end
-	videoFile.Seek(0, io.SeekEnd)
-	// info file
-	infoFilename := filename + ".dl-info"
-	if continueDl {
-		infoFileData, err := os.ReadFile(infoFilename)
-		if err != nil {
-			cli.ErrorMessage(fmt.Sprint(err), err)
-			return errors.New("could not access download info file, can't continue download")
+		if !overwrite && !continueDl {
+			if _, err := os.Stat(filename); err == nil {
+				return &FileExistsError{Filename: filename}
+			}
 		}
-		i, err := strconv.ParseInt(string(infoFileData), 10, 32)
-		nextChunk = int(i)
+		videoFile, err = os.OpenFile(filename, os.O_RDWR | os.O_CREATE, 0660)
 		if err != nil {
 			return err
 		}
-	}
-	infoFile, err := os.OpenFile(infoFilename, os.O_RDWR | os.O_CREATE, 0660)
-	if err != nil {
-		return err
-	}
-	infoFile.Truncate(0)
-	infoFile.Seek(0, io.SeekStart)
-	infoFile.Write([]byte(strconv.Itoa(nextChunk)))
-	if err != nil {
-		return err
+		defer videoFile.Close()
+		if overwrite {
+			videoFile.Truncate(0)
+		}
+		// always seek to the end
+		videoFile.Seek(0, io.SeekEnd)
+		// info file
+		infoFilename = filename + ".dl-info"
+		if continueDl {
+			infoFileData, err := os.ReadFile(infoFilename)
+			if err != nil {
+				cli.ErrorMessage(fmt.Sprint(err), err)
+				return errors.New("could not access download info file, can't continue download")
+			}
+			i, err := strconv.ParseInt(string(infoFileData), 10, 32)
+			nextChunk = int(i)
+			if err != nil {
+				return err
+			}
+		}
+		infoFile, err = os.OpenFile(infoFilename, os.O_RDWR | os.O_CREATE, 0660)
+		if err != nil {
+			return err
+		}
+		infoFile.Truncate(0)
+		infoFile.Seek(0, io.SeekStart)
+		infoFile.Write([]byte(strconv.Itoa(nextChunk)))
+		if err != nil {
+			return err
+		}
 	}
 	// download
 	chunklist, err := GetStreamChunkList(ep.Formats[formatIdx])
@@ -161,11 +166,15 @@ func (ep *StreamEpisode) Download(formatIdx int, chapterIdx int, start time.Dura
 			deferTime := (rate - ratelimit) / ratelimit * dtDownload
 			time.Sleep(time.Duration(deferTime * float64(time.Second)))
 		}
-		videoFile.Write(data)
-		nextChunk++
-		infoFile.Truncate(0)
-		infoFile.Seek(0, io.SeekStart)
-		infoFile.Write([]byte(strconv.Itoa(nextChunk)))
+		if cli.jsonData {
+			PrintJson(JsonVideoData{DataChunkIdx: i, Data: data})
+		} else {
+			videoFile.Write(data)
+			nextChunk++
+			infoFile.Truncate(0)
+			infoFile.Seek(0, io.SeekStart)
+			infoFile.Write([]byte(strconv.Itoa(nextChunk)))
+		}
 		var dtIteration float64 = float64(time.Now().UnixNano() - time1) / 1000000000.0
 		if !delayNow {
 			bufferDt += dtIteration

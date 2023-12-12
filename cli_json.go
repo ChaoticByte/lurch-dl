@@ -32,6 +32,22 @@ func (m JsonProgress) Marshal() ([]byte, error) {
 func (m JsonProgress) OutputFile() *os.File { return os.Stdout }
 
 
+type JsonVideoData struct {
+	MsgType string `json:"type"`
+	DataChunkIdx int `json:"idx"`
+	// encoded to base64 per default, see
+	// https://pkg.go.dev/encoding/json#Marshal
+	Data []byte `json:"data"`
+}
+
+func (m JsonVideoData) Marshal() ([]byte, error) {
+	m.MsgType = "video_data"
+	return json.Marshal(m)
+}
+
+func (m JsonVideoData) OutputFile() *os.File { return os.Stdout }
+
+
 type JsonVideoMeta struct {
 	MsgType string `json:"type"`
 	ProposedFilename string `json:"proposed_filename"`

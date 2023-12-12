@@ -31,7 +31,8 @@ func DrawLine() {
 //
 
 type Cli struct {
-	jsonOutput bool
+	jsonCli bool
+	jsonData bool
 	xtermTitle bool
 }
 
@@ -63,11 +64,13 @@ func (cli *Cli) Run() {
 	flag.BoolVar(&overwrite, "overwrite", false, "")
 	flag.BoolVar(&continueDl, "continue", false, "")
 	flag.Float64Var(&ratelimit, "max-rate", 10.0, "")
-	flag.BoolVar(&cli.jsonOutput, "json", false, "")
+	flag.BoolVar(&cli.jsonCli, "json", false, "")
+	flag.BoolVar(&cli.jsonData, "json-data", false, "")
 	flag.Usage = cli.Help
 	flag.Parse()
+	cli.jsonCli = cli.jsonCli || cli.jsonData // --json-data implies --json
 	// detect terminal type and set variables accordingly
-	if !cli.jsonOutput {
+	if !cli.jsonCli {
 		for _, entry := range os.Environ() {
 			kv := strings.Split(entry, "=")
 			if len(kv) > 1 && kv[0] == "TERM" {
@@ -122,20 +125,20 @@ func (cli *Cli) Run() {
 		os.Exit(1)
 	}
 	if video.Class != "streams" {
-		if cli.jsonOutput {
+		if cli.jsonCli {
 			PrintJson(JsonError{Message: "Video category '" + video.Class + "' not supported"})
 		} else {
 			fmt.Println("Video category '" + video.Class + "' not supported.")
 		}
 		os.Exit(1)
 	}
-	if !cli.jsonOutput && cli.xtermTitle { XtermSetTitle("lurch-dl - Fetching video metadata ...") }
+	if !cli.jsonCli && cli.xtermTitle { XtermSetTitle("lurch-dl - Fetching video metadata ...") }
 	streamEp, err := GetStreamEpisode(video.Id, chapterIdx)
 	if err != nil {
 		cli.ErrorMessage(fmt.Sprint(err), err)
 		os.Exit(1)
 	}
-	if cli.jsonOutput {
+	if cli.jsonCli {
 		PrintJson(JsonVideoMeta{ProposedFilename: streamEp.ProposedFilename, Title: streamEp.Title, VideoClass: video.Class})
 	} else {
 		DrawLine()
@@ -143,14 +146,14 @@ func (cli *Cli) Run() {
 	}
 	if listChapters || listFormats {
 		if listChapters {
-			if !cli.jsonOutput { DrawLine() }
+			if !cli.jsonCli { DrawLine() }
 			cli.AvailableChapters(streamEp.Chapters)
 		}
 		if listFormats {
-			if !cli.jsonOutput { DrawLine() }
+			if !cli.jsonCli { DrawLine() }
 			cli.AvailableFormats(streamEp.Formats)
 		}
-		if !cli.jsonOutput { DrawLine() }
+		if !cli.jsonCli { DrawLine() }
 		os.Exit(0)
 	}
 	if chapterIdx >= 0 {
@@ -162,17 +165,17 @@ func (cli *Cli) Run() {
 	formatIdx, err := streamEp.GetFormatIdx(formatName)
 	if err != nil {
 		cli.ErrorMessage(fmt.Sprint(err), err)
-		if !cli.jsonOutput {
+		if !cli.jsonCli {
 			cli.AvailableFormats(streamEp.Formats)
 		}
 		os.Exit(1)
 	}
-	if !cli.jsonOutput { DrawLine() }
+	if !cli.jsonCli { DrawLine() }
 	cli.Format(streamEp.Formats[formatIdx])
 	if chapterIdx >= 0 {
 		cli.InfoMessage(fmt.Sprintf("Chapter: %v. %v", chapterNum, streamEp.Chapters[chapterIdx].Title))
 	}
-	if !cli.jsonOutput {
+	if !cli.jsonCli {
 		DrawLine()
 		defer fmt.Print("\n")
 	}
@@ -183,7 +186,7 @@ func (cli *Cli) Run() {
 }
 
 func (cli *Cli) AvailableChapters(chapters []Chapter) {
-	if cli.jsonOutput {
+	if cli.jsonCli {
 		PrintJson(JsonAvailableChapters{Chapters: chapters})
 	} else {
 		fmt.Println("Chapters:")
@@ -194,7 +197,7 @@ func (cli *Cli) AvailableChapters(chapters []Chapter) {
 }
 
 func (cli *Cli) AvailableFormats(formats []VideoFormat) {
-	if cli.jsonOutput {
+	if cli.jsonCli {
 		PrintJson(JsonAvailableFormats{Formats: formats})
 	} else {
 		fmt.Println("Available formats:")
@@ -205,7 +208,7 @@ func (cli *Cli) AvailableFormats(formats []VideoFormat) {
 }
 
 func (cli *Cli) Format(format VideoFormat) {
-	if cli.jsonOutput {
+	if cli.jsonCli {
 		PrintJson(JsonFormat{Format: format.Name})
 	} else {
 		fmt.Printf("Format: %v\n", format.Name)
@@ -213,7 +216,7 @@ func (cli *Cli) Format(format VideoFormat) {
 }
 
 func (cli *Cli) Progress(progress float32, rate float64, delaying bool, waiting bool, retries int, title string) {
-	if cli.jsonOutput {
+	if cli.jsonCli {
 		PrintJson(
 			JsonProgress{
 				Progress: progress,
@@ -241,7 +244,7 @@ func (cli *Cli) Progress(progress float32, rate float64, delaying bool, waiting 
 }
 
 func (cli *Cli) InfoMessage(msg string) {
-	if cli.jsonOutput {
+	if cli.jsonCli {
 		PrintJson(JsonInfo{Message: msg})
 	} else {
 		fmt.Println(msg)
@@ -249,7 +252,7 @@ func (cli *Cli) InfoMessage(msg string) {
 }
 
 func (cli *Cli) ErrorMessage(msg string, err error) {
-	if cli.jsonOutput {
+	if cli.jsonCli {
 		PrintJson(JsonError{Message: msg, Error: err})
 	} else {
 		if msg != "" {
@@ -259,7 +262,7 @@ func (cli *Cli) ErrorMessage(msg string, err error) {
 }
 
 func (cli *Cli) Aborted() {
-	if cli.jsonOutput {
+	if cli.jsonCli {
 		PrintJson(JsonError{Message: "aborted"})
 	} else {
 		fmt.Print("\nAborted.                                                ")
@@ -267,7 +270,7 @@ func (cli *Cli) Aborted() {
 }
 
 func (cli *Cli) Help() {
-	if cli.jsonOutput {
+	if cli.jsonCli {
 		PrintJson(JsonError{Message: "Not printing help text in json output mode"})
 	} else {
 		fmt.Println(`lurch-dl --url string       The url to the video
@@ -290,7 +293,10 @@ func (cli *Cli) Help() {
                             too high, you may run into a ratelimit and your
                             IP address might get banned from the servers.
                             default: 10.0
-         [--json]           Provide all terminal output in json format
+         [--json]           Print all terminal output in json format
+         [--json-data]      Print video data to stdout in json format
+                            implies --json, supersedes --output
+                            disarms --continue and --overwrite
 
 Version: ` + Version)
 	}
