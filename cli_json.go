@@ -32,17 +32,19 @@ func (m JsonProgress) Marshal() ([]byte, error) {
 func (m JsonProgress) OutputFile() *os.File { return os.Stdout }
 
 
-type JsonTitle struct {
+type JsonVideoMeta struct {
 	MsgType string `json:"type"`
+	ProposedFilename string `json:"proposed_filename"`
 	Title string `json:"title"`
+	VideoClass string `json:"video_class"`
 }
 
-func (m JsonTitle) Marshal() ([]byte, error) {
-	m.MsgType = "title"
+func (m JsonVideoMeta) Marshal() ([]byte, error) {
+	m.MsgType = "video_meta"
 	return json.Marshal(m)
 }
 
-func (m JsonTitle) OutputFile() *os.File { return os.Stdout }
+func (m JsonVideoMeta) OutputFile() *os.File { return os.Stdout }
 
 
 type JsonFormat struct {

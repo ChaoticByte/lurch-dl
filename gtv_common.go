@@ -16,7 +16,7 @@ var videoUrlRegex = regexp.MustCompile(`gronkh\.tv\/([a-z]+)\/([0-9]+)`)
 
 
 type GtvVideo struct {
-	Category string
+	Class string
 	Id string
 }
 
@@ -26,7 +26,7 @@ func ParseGtvVideoUrl(url string) (GtvVideo, error) {
 	if match == nil || len(match) < 2 {
 		return video, errors.New("Could not parse URL " + url)
 	}
-	video.Category = match[1]
+	video.Class = match[1]
 	video.Id = match[2]
 	return video, nil
 }

@@ -121,11 +121,11 @@ func (cli *Cli) Run() {
 		cli.ErrorMessage(fmt.Sprint(err), err)
 		os.Exit(1)
 	}
-	if video.Category != "streams" {
+	if video.Class != "streams" {
 		if cli.jsonOutput {
-			PrintJson(JsonError{Message: "Video category '" + video.Category + "' not supported"})
+			PrintJson(JsonError{Message: "Video category '" + video.Class + "' not supported"})
 		} else {
-			fmt.Println("Video category '" + video.Category + "' not supported.")
+			fmt.Println("Video category '" + video.Class + "' not supported.")
 		}
 		os.Exit(1)
 	}
@@ -136,7 +136,7 @@ func (cli *Cli) Run() {
 		os.Exit(1)
 	}
 	if cli.jsonOutput {
-		PrintJson(JsonTitle{Title: streamEp.Title})
+		PrintJson(JsonVideoMeta{ProposedFilename: streamEp.ProposedFilename, Title: streamEp.Title, VideoClass: video.Class})
 	} else {
 		DrawLine()
 		fmt.Println(streamEp.Title)
