@@ -3,7 +3,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -294,85 +293,5 @@ func (cli *Cli) Help() {
          [--json]           Provide all terminal output in json format
 
 Version: ` + Version)
-	}
-}
-
-type JsonProgress struct {
-	MsgType string `json:"type"`
-	Progress float32 `json:"progress"`
-	Rate float64 `json:"rate"`
-	Delaying bool `json:"delaying"`
-	Waiting bool `json:"waiting"`
-	Retries int `json:"retries"`
-}
-
-type JsonTitle struct {
-	MsgType string `json:"type"`
-	Title string `json:"title"`
-}
-
-type JsonFormat struct {
-	MsgType string `json:"type"`
-	Format string `json:"format"`
-}
-
-type JsonAvailableFormats struct {
-	MsgType string `json:"type"`
-	Formats []VideoFormat `json:"formats"`
-}
-
-type JsonAvailableChapters struct {
-	MsgType string `json:"type"`
-	Chapters []Chapter `json:"chapters"`
-}
-
-type JsonInfo struct {
-	MsgType string `json:"type"`
-	Message string `json:"message"`
-}
-
-type JsonError struct {
-	MsgType string `json:"type"`
-	Message string `json:"message"`
-	Error error `json:"error"`
-}
-
-type JsonUnknown struct {
-	MsgType string `json:"type"`
-	Message any `json:"message"`
-}
-
-func PrintJson(msg any) {
-	outputFile := os.Stdout
-	var m any = JsonUnknown{MsgType: "unknown", Message: msg} // default
-	switch v := msg.(type) {
-	case JsonProgress:
-		v.MsgType = "progress"
-		m = v
-	case JsonTitle:
-		v.MsgType = "title"
-		m = v
-	case JsonFormat:
-		v.MsgType = "format"
-		m = v
-	case JsonAvailableFormats:
-		v.MsgType = "available_formats"
-		m = v
-	case JsonAvailableChapters:
-		v.MsgType = "available_chapters"
-		m = v
-	case JsonInfo:
-		v.MsgType = "info"
-		m = v
-	case JsonError:
-		v.MsgType = "error"
-		m = v
-		outputFile = os.Stderr
-	}
-	encoded, err := json.Marshal(m)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "{\"type\":\"error\",\"message\":\"Couldn't convert output to json\",\"error\":{}}")
-	} else {
-		fmt.Fprintln(outputFile, string(encoded))
 	}
 }
