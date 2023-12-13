@@ -9,7 +9,7 @@ For example usage, have a look at [examples/download.py](./examples/download.py)
 
 ### Available Formats
 
-```json
+```json5
 {
     "type": "available_formats",
     "formats": [
@@ -32,7 +32,7 @@ This is only output if `--list-formats` is passed.
 
 ### Available Chapters
 
-```json
+```json5
 {
     "type": "available_chapters",
     "chapters": [
@@ -65,7 +65,7 @@ This is only output if `--list-chapters` is passed.
 
 ### Video Metadata
 
-```json
+```json5
 {
     "type": "video_meta",
     "proposed_filename": "GTV0774, 2023-10-31 - (...).ts",
@@ -76,7 +76,7 @@ This is only output if `--list-chapters` is passed.
 
 ### Chosen Video Format
 
-```json
+```json5
 {
     "type": "format",
     "format": "1080p60"
@@ -85,7 +85,7 @@ This is only output if `--list-chapters` is passed.
 
 ### Progress
 
-```json
+```json5
 {
     "type": "progress",
     "progress": 0.00017143837,
@@ -102,7 +102,7 @@ This is only output if `--list-chapters` is passed.
 
 ### Video Data
 
-```json
+```json5
 {
     "type": "video_data",
     "idx": 0,
@@ -114,7 +114,7 @@ This is only output if `--json-data` is passed.
 
 ### Info Message
 
-```json
+```json5
 {
     "type": "info",
     "message": "This is an info message"
@@ -123,7 +123,7 @@ This is only output if `--json-data` is passed.
 
 ### Error Message
 
-```json
+```json5
 {
     "type": "error",
     "message": "This is an error message",
