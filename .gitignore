@@ -21,6 +21,7 @@
 go.work
 
 # Build output
+lurch-dl
 dist/
 
 # Media files
