@@ -129,19 +129,6 @@ func (m JsonError) Marshal() ([]byte, error) {
 func (m JsonError) OutputFile() *os.File { return os.Stderr }
 
 
-type JsonUnknown struct {
-	MsgType string `json:"type"`
-	Message any `json:"message"`
-}
-
-func (m JsonUnknown) Marshal() ([]byte, error) {
-	m.MsgType = "unknown"
-	return json.Marshal(m)
-}
-
-func (m JsonUnknown) OutputFile() *os.File { return os.Stderr }
-
-
 func PrintJson(msg JsonMessage) {
 	encoded, err := msg.Marshal()
 	if err != nil {
