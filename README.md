@@ -60,7 +60,12 @@ lurch-dl --url string       The url to the video
                             IP address might get banned from the servers.
                             default: 10.0
          [--json]           Provide all terminal output in json format
+         [--json-data]      Print video data to stdout in json format
+                            implies --json, supersedes --output
+                            disarms --continue and --overwrite
 ```
+
+The json interface (`--json` and `--json-data`) is documented [-> here](./docs/README.md).
 
 ### Windows
 

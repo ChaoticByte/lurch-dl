@@ -61,7 +61,12 @@ lurch-dl --url string       Die URL zum Video
                             Server besteht
                             default: 10.0
          [--json]           Terminal-Ausgabe in JSON-Format
+         [--json-data]      Ausgabe der Videodaten in JSON-Format
+                            impliziert --json, hebt --output, --continue und
+                            --overwrite auf
 ```
+
+Das JSON-Interface (`--json` und `--json-data`) ist [-> hier](./docs/README.md) documentiert.
 
 ### Windows
 
