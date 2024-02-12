@@ -33,12 +33,12 @@ type StreamEpisode struct {
 	Chapters []Chapter `json:"chapters"`
 }
 
-func (ep *StreamEpisode) GetFormatIdx(formatName string) (int, error) {
-	idx := 0
+func (ep *StreamEpisode) GetFormatByName(formatName string) (VideoFormat, error) {
+	var idx int
 	var err error = nil
 	if formatName == "auto" {
-		// at the moment, the best format is always the first
-		return idx, nil
+		// at the moment, the best format is always the first -> 0
+		return ep.Formats[idx], nil
 	} else {
 		formatFound := false
 		for i, f := range ep.Formats {
@@ -48,42 +48,38 @@ func (ep *StreamEpisode) GetFormatIdx(formatName string) (int, error) {
 			}
 		}
 		if !formatFound { err = &FormatNotFoundError{FormatName: formatName} }
-		return idx, err
+		return ep.Formats[idx], err
 	}
 }
 
-func (ep *StreamEpisode) Download(formatIdx int, chapterIdx int, start time.Duration, stop time.Duration, filename string, overwrite bool, continueDl bool, ratelimit float64, cli *Cli) error {
+func (ep *StreamEpisode) Download(args CliArguments) error {
 	var err error
 	var nextChunk int = 0
 	var videoFile *os.File
 	var infoFile *os.File
 	var infoFilename string
-	if !cli.jsonData {
-		// video file
-		if filename == "" {
-			filename = ep.ProposedFilename
-		}
-		if !overwrite && !continueDl {
-			if _, err := os.Stat(filename); err == nil {
-				return &FileExistsError{Filename: filename}
+	if !CliJsonData {
+		if !args.Overwrite && !args.ContinueDl {
+			if _, err := os.Stat(args.OutputFile); err == nil {
+				return &FileExistsError{Filename: args.OutputFile}
 			}
 		}
-		videoFile, err = os.OpenFile(filename, os.O_RDWR | os.O_CREATE, 0660)
+		videoFile, err = os.OpenFile(args.OutputFile, os.O_RDWR | os.O_CREATE, 0660)
 		if err != nil {
 			return err
 		}
 		defer videoFile.Close()
-		if overwrite {
+		if args.Overwrite {
 			videoFile.Truncate(0)
 		}
 		// always seek to the end
 		videoFile.Seek(0, io.SeekEnd)
 		// info file
-		infoFilename = filename + ".dl-info"
-		if continueDl {
+		infoFilename = args.OutputFile + ".dl-info"
+		if args.ContinueDl {
 			infoFileData, err := os.ReadFile(infoFilename)
 			if err != nil {
-				cli.ErrorMessage(fmt.Sprint(err), err)
+				CliErrorMessage(err)
 				return errors.New("could not access download info file, can't continue download")
 			}
 			i, err := strconv.ParseInt(string(infoFileData), 10, 32)
@@ -104,17 +100,9 @@ func (ep *StreamEpisode) Download(formatIdx int, chapterIdx int, start time.Dura
 		}
 	}
 	// download
-	chunklist, err := GetStreamChunkList(ep.Formats[formatIdx])
-	if chapterIdx >= 0 {
-		if start < 0 {
-			start = time.Duration(ep.Chapters[chapterIdx].Offset)
-		}
-		if stop < 0 && chapterIdx+1 < len(ep.Chapters) {
-			// next chapter is stop
-			stop = time.Duration(ep.Chapters[chapterIdx+1].Offset)
-		}
-	}
-	chunklist = chunklist.Cut(start, stop)
+	format, _ := ep.GetFormatByName(args.FormatName) // we don't have to check the error, as it was already checked by CliRun()
+	chunklist, err := GetStreamChunkList(format)
+	chunklist = chunklist.Cut(args.StartDuration, args.StopDuration)
 	if err != nil {
 		return err
 	}
@@ -128,8 +116,8 @@ func (ep *StreamEpisode) Download(formatIdx int, chapterIdx int, start time.Dura
 		// Handle Keyboard Interrupts
 		<-keyboardInterruptChan
 		keyboardInterrupt = true
-		cli.Progress(progress, actualRate, false, false, 0, ep.Title);
-		cli.Aborted()
+		CliDownloadProgress(progress, actualRate, false, false, 0, ep.Title);
+		CliAborted()
 	}()
 	for i, chunk := range chunklist.Chunks {
 		if i < nextChunk { continue }
@@ -139,7 +127,7 @@ func (ep *StreamEpisode) Download(formatIdx int, chapterIdx int, start time.Dura
 		for {
 			if keyboardInterrupt { break }
 			time1 = time.Now().UnixNano()
-			cli.Progress(progress, actualRate, false, true, retries, ep.Title)
+			CliDownloadProgress(progress, actualRate, false, true, retries, ep.Title)
 			data, err = httpGet(chunklist.BaseUrl + "/" + chunk, []http.Header{ApiHeadersBase, ApiHeadersVideoAdditional}, time.Second * 5)
 			if err != nil {
 				if retries == MaxRetries {
@@ -153,20 +141,20 @@ func (ep *StreamEpisode) Download(formatIdx int, chapterIdx int, start time.Dura
 		if keyboardInterrupt { break }
 		var dtDownload float64 = float64(time.Now().UnixNano() - time1) / 1000000000.0
 		rate := float64(len(data)) / dtDownload
-		actualRate = rate - max(rate - ratelimit, 0)
+		actualRate = rate - max(rate - args.Ratelimit, 0)
 		progress = float32(i+1) / float32(len(chunklist.Chunks))
 		delayNow := bufferDt > RatelimitDelayAfter
-		cli.Progress(progress, actualRate, delayNow, false, retries, ep.Title)
+		CliDownloadProgress(progress, actualRate, delayNow, false, retries, ep.Title)
 		if delayNow {
 			bufferDt = 0
 			// this simulates that the buffering is finished and the player is playing
 			time.Sleep(time.Duration(RatelimitDelay * float64(time.Second)))
-		} else if rate > ratelimit {
+		} else if rate > args.Ratelimit {
 			// slow down, we are too fast.
-			deferTime := (rate - ratelimit) / ratelimit * dtDownload
+			deferTime := (rate - args.Ratelimit) / args.Ratelimit * dtDownload
 			time.Sleep(time.Duration(deferTime * float64(time.Second)))
 		}
-		if cli.jsonData {
+		if CliJsonData {
 			PrintJson(JsonVideoData{DataChunkIdx: i, Data: data})
 		} else {
 			videoFile.Write(data)

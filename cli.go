@@ -3,190 +3,245 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"strings"
 	"time"
-
-	"golang.org/x/term"
 )
 
+// Global Variables
+var CliJson bool
+var CliJsonData bool
+var CliXtermTitle bool
+
 //
+
+func XtermDetectFeatures() {
+	for _, entry := range os.Environ() {
+		kv := strings.Split(entry, "=")
+		if len(kv) > 1 && kv[0] == "TERM" {
+			if strings.Contains(kv[1], "xterm") ||
+			   strings.Contains(kv[1], "rxvt")  ||
+			   strings.Contains(kv[1], "alacritty") {
+				CliXtermTitle = true
+				break
+			}
+		}
+	}
+}
 
 func XtermSetTitle(title string) {
 	fmt.Printf("\033]2;%s\007", title)
 }
 
-func DrawLine() {
-	terminalWidth, _, err := term.GetSize(0)
-	if err != nil { return }
-	r := ""
-	for i:=0; i<terminalWidth-1; i++ {
-		r += "─"
+func SafeNewline() {
+	// only for non-json output
+	if !CliJson {
+		fmt.Print("\n")
 	}
-	fmt.Println(r)
 }
 
-//
+// Commandline Interface Arguments
 
-type Cli struct {
-	jsonCli bool
-	jsonData bool
-	xtermTitle bool
+type CliArguments struct {
+	// "Raw"
+	Help bool
+	ListChapters bool
+	ListFormats bool
+	Url string
+	ChapterNum int
+	FormatName string
+	OutputFile string
+	TimestampStart string
+	TimestampStop string
+	Overwrite bool
+	ContinueDl bool
+	// Parsed
+	Video GtvVideo
+	StartDuration time.Duration
+	StopDuration time.Duration
+	ChapterIdx int
+	Ratelimit float64
 }
 
-func (cli *Cli) Run() {
-	// cli arguments
-	var help bool
-	var listChapters bool
-	var listFormats bool
-	var url string
-	var chapterNum int
-	var formatName string
-	var outputFile string
-	var timestampStart string
-	var timestampStop string
-	var overwrite bool
-	var continueDl bool
-	var ratelimit float64
-	// var outputFile string
-	flag.BoolVar(&help, "h", false, "")
-	flag.BoolVar(&help, "help", false, "")
-	flag.BoolVar(&listChapters, "list-chapters", false, "")
-	flag.BoolVar(&listFormats, "list-formats", false, "")
-	flag.StringVar(&url, "url", "", "")
-	flag.IntVar(&chapterNum, "chapter", 0, "") // 0 is out of range bc. chapters start at 1 -> 0 means not defined
-	flag.StringVar(&formatName, "format", "auto", "")
-	flag.StringVar(&outputFile, "output", "", "")
-	flag.StringVar(&timestampStart, "start", "", "")
-	flag.StringVar(&timestampStop, "stop", "", "")
-	flag.BoolVar(&overwrite, "overwrite", false, "")
-	flag.BoolVar(&continueDl, "continue", false, "")
-	flag.Float64Var(&ratelimit, "max-rate", 10.0, "")
-	flag.BoolVar(&cli.jsonCli, "json", false, "")
-	flag.BoolVar(&cli.jsonData, "json-data", false, "")
-	flag.Usage = cli.Help
-	flag.Parse()
-	cli.jsonCli = cli.jsonCli || cli.jsonData // --json-data implies --json
-	// detect terminal type and set variables accordingly
-	if !cli.jsonCli {
-		for _, entry := range os.Environ() {
-			kv := strings.Split(entry, "=")
-			if len(kv) > 1 && kv[0] == "TERM" {
-				if strings.Contains(kv[1], "xterm") ||
-				   strings.Contains(kv[1], "rxvt")  ||
-				   strings.Contains(kv[1], "alacritty") {
-					cli.xtermTitle = true
-					break
-				}
-			}
-		}
+func CliShowHelp() {
+	if CliJson {
+		PrintJson(JsonError{Message: "Not printing help text in json output mode"})
+	} else {
+		fmt.Println(`
+lurch-dl --url string       The url to the video
+         [-h --help]        Show this help and exit
+         [--list-chapters]  List chapters and exit
+         [--list-formats]   List available formats and exit
+         [--chapter int]    The chapter you want to download
+                            The calculated start and stop timestamps can be
+                            overwritten by --start and --stop
+                            default: 0 (complete stream)
+         [--format string]  The desired video format
+                            default: auto
+         [--output string]  The output file. Will be determined automatically
+                            if omitted.
+         [--start string]   Define a video timestamp to start at, e.g. 12m34s
+         [--stop string]    Define a video timestamp to stop at, e.g. 1h23m45s
+         [--continue]       Continue the download if possible
+         [--overwrite]      Overwrite the output file if it already exists
+         [--max-rate float] The maximum download rate in MB/s - don't set this
+                            too high, you may run into a ratelimit and your
+                            IP address might get banned from the servers.
+                            default: 10.0
+         [--json]           Print all terminal output in json format
+         [--json-data]      Print video data to stdout in json format
+                            implies --json, supersedes --output
+                            disarms --continue and --overwrite
+
+Version: ` + Version)
 	}
-	//
-	var startDuration time.Duration
-	var stopDuration time.Duration
+}
+
+func CliParseArguments() (CliArguments, error) {
 	var err error
-	if ratelimit <= 0 {
-		cli.ErrorMessage("The value of --max-rate must be greater than 0", nil)
-		os.Exit(1)
-	}
-	ratelimit *= 1_000_000.0 // MB
-	if timestampStart == "" {
-		startDuration = -1
-	} else {
-		startDuration, err = time.ParseDuration(timestampStart)
-		if err != nil {
-			cli.ErrorMessage(fmt.Sprintf("Couldn't parse start timestamp '%v'", timestampStart), err)
-			os.Exit(1)
-		}
-	}
-	if timestampStop == "" {
-		stopDuration = -1
-	} else {
-		stopDuration, err = time.ParseDuration(timestampStop)
-		if err != nil {
-			cli.ErrorMessage(fmt.Sprintf("Couldn't parse stop timestamp '%v'", timestampStop), err)
-			os.Exit(1)
-		}
-	}
-	chapterIdx := chapterNum-1
-	// run actions
-	if help {
-		cli.Help()
-		os.Exit(0)
-	} else if url == "" {
-		cli.Help()
-		os.Exit(1)
-	}
-	video, err := ParseGtvVideoUrl(url)
+	var ratelimitMbs float64
+	a := CliArguments{}
+	flag.BoolVar(&a.Help, "h", false, "")
+	flag.BoolVar(&a.Help, "help", false, "")
+	flag.BoolVar(&a.ListChapters, "list-chapters", false, "")
+	flag.BoolVar(&a.ListFormats, "list-formats", false, "")
+	flag.StringVar(&a.Url, "url", "", "")
+	flag.IntVar(&a.ChapterNum, "chapter", 0, "") // 0 -> chapter idx -1 -> complete stream
+	flag.StringVar(&a.FormatName, "format", "auto", "")
+	flag.StringVar(&a.OutputFile, "output", "", "")
+	flag.StringVar(&a.TimestampStart, "start", "", "")
+	flag.StringVar(&a.TimestampStop, "stop", "", "")
+	flag.BoolVar(&a.Overwrite, "overwrite", false, "")
+	flag.BoolVar(&a.ContinueDl, "continue", false, "")
+	flag.Float64Var(&ratelimitMbs, "max-rate", 10.0, "")
+	flag.BoolVar(&CliJson, "json", false, "")
+	flag.BoolVar(&CliJsonData, "json-data", false, "")
+	flag.Parse()
+	CliJson = CliJson || CliJsonData
+	a.Video, err = ParseGtvVideoUrl(a.Url)
 	if err != nil {
-		cli.ErrorMessage(fmt.Sprint(err), err)
-		os.Exit(1)
+		return a, err
 	}
-	if video.Class != "streams" {
-		if cli.jsonCli {
-			PrintJson(JsonError{Message: "Video category '" + video.Class + "' not supported"})
-		} else {
-			fmt.Println("Video category '" + video.Class + "' not supported.")
-		}
-		os.Exit(1)
+	if a.Video.Class != "streams" {
+		return a, errors.New("video category '" + a.Video.Class + "' not supported")
 	}
-	if !cli.jsonCli && cli.xtermTitle { XtermSetTitle("lurch-dl - Fetching video metadata ...") }
-	streamEp, err := GetStreamEpisode(video.Id, chapterIdx)
-	if err != nil {
-		cli.ErrorMessage(fmt.Sprint(err), err)
-		os.Exit(1)
-	}
-	if cli.jsonCli {
-		PrintJson(JsonVideoMeta{ProposedFilename: streamEp.ProposedFilename, Title: streamEp.Title, VideoClass: video.Class})
+	if a.TimestampStart == "" {
+		a.StartDuration = -1
 	} else {
-		DrawLine()
+		a.StartDuration, err = time.ParseDuration(a.TimestampStart)
+		if err != nil {
+			return a, err
+		}
+	}
+	if a.TimestampStop == "" {
+		a.StopDuration = -1
+	} else {
+		a.StopDuration, err = time.ParseDuration(a.TimestampStop)
+		if err != nil {
+			return a, err
+		}
+	}
+	a.ChapterIdx = a.ChapterNum - 1
+	a.Ratelimit = ratelimitMbs * 1_000_000.0 // MB/s -> B/s
+	if a.Ratelimit <= 0 {
+		return a, errors.New("the value of --max-rate must be greater than 0")
+	}
+	return a, err
+}
+
+// Main
+
+func CliRun() int {
+	defer SafeNewline()
+	// cli arguments & help text
+	flag.Usage = CliShowHelp
+	args, err := CliParseArguments()
+	if args.Help {
+		CliShowHelp()
+		return 0
+	} else if args.Url == "" || err != nil  {
+		CliShowHelp()
+		if err != nil {
+			CliErrorMessage(err)
+		}
+		return 1
+	}
+	// detect terminal features
+	if !CliJson { XtermDetectFeatures() }
+	// Get video metadata
+	if CliXtermTitle { XtermSetTitle("lurch-dl - Fetching video metadata ...") }
+	streamEp, err := GetStreamEpisode(args.Video.Id, args.ChapterIdx)
+	if err != nil {
+		CliErrorMessage(err)
+		return 1
+	}
+	if CliJson {
+		PrintJson(JsonVideoMeta{ProposedFilename: streamEp.ProposedFilename, Title: streamEp.Title, VideoClass: args.Video.Class})
+	} else {
+		SafeNewline()
 		fmt.Println(streamEp.Title)
 	}
-	if listChapters || listFormats {
-		if listChapters {
-			if !cli.jsonCli { DrawLine() }
-			cli.AvailableChapters(streamEp.Chapters)
-		}
-		if listFormats {
-			if !cli.jsonCli { DrawLine() }
-			cli.AvailableFormats(streamEp.Formats)
-		}
-		if !cli.jsonCli { DrawLine() }
-		os.Exit(0)
-	}
-	if chapterIdx >= 0 {
-		if chapterIdx >= len(streamEp.Chapters) {
-			cli.ErrorMessage(fmt.Sprintf("Chapter %v not found", chapterNum), nil)
-			os.Exit(1)
+	// Check and list chapters/formats and exit
+	if args.ChapterIdx >= 0 {
+		if args.ChapterIdx >= len(streamEp.Chapters) {
+			CliErrorMessage(&ChapterNotFoundError{ChapterNum: args.ChapterNum})
+			if !CliJson {
+				CliAvailableChapters(streamEp.Chapters)
+			}
+			return 1
 		}
 	}
-	formatIdx, err := streamEp.GetFormatIdx(formatName)
+	if args.ListChapters || args.ListFormats {
+		if args.ListChapters {
+			SafeNewline()
+			CliAvailableChapters(streamEp.Chapters)
+		}
+		if args.ListFormats {
+			SafeNewline()
+			CliAvailableFormats(streamEp.Formats)
+		}
+		return 0
+	}
+	format, err := streamEp.GetFormatByName(args.FormatName)
 	if err != nil {
-		cli.ErrorMessage(fmt.Sprint(err), err)
-		if !cli.jsonCli {
-			cli.AvailableFormats(streamEp.Formats)
+		CliErrorMessage(err)
+		if !CliJson {
+			CliAvailableFormats(streamEp.Formats)
 		}
-		os.Exit(1)
+		return 1
 	}
-	if !cli.jsonCli { DrawLine() }
-	cli.Format(streamEp.Formats[formatIdx])
-	if chapterIdx >= 0 {
-		cli.InfoMessage(fmt.Sprintf("Chapter: %v. %v", chapterNum, streamEp.Chapters[chapterIdx].Title))
+	CliShowFormat(format)
+	if args.ChapterIdx >= 0 {
+		CliInfoMessage(fmt.Sprintf("Chapter: %v. %v", args.ChapterNum, streamEp.Chapters[args.ChapterIdx].Title))
 	}
-	if !cli.jsonCli {
-		DrawLine()
-		defer fmt.Print("\n")
+	// Set auto values
+	if args.OutputFile == "" {
+		args.OutputFile = streamEp.ProposedFilename
 	}
-	if err = streamEp.Download(formatIdx, chapterIdx, startDuration, stopDuration, outputFile, overwrite, continueDl, ratelimit, cli); err != nil {
-		cli.ErrorMessage(fmt.Sprint(err), err)
-		os.Exit(1)
+	if args.ChapterIdx >= 0 {
+		if args.StartDuration < 0 {
+			args.StartDuration = time.Duration(streamEp.Chapters[args.ChapterIdx].Offset)
+		}
+		if args.StopDuration < 0 && args.ChapterIdx + 1 < len(streamEp.Chapters) {
+			// next chapter is stop
+			args.StopDuration = time.Duration(streamEp.Chapters[args.ChapterIdx + 1].Offset)
+		}
 	}
+	// Start Download
+	SafeNewline()
+	if err = streamEp.Download(args); err != nil {
+		CliErrorMessage(err)
+		return 1
+	}
+	SafeNewline()
+	return 0
 }
 
-func (cli *Cli) AvailableChapters(chapters []Chapter) {
-	if cli.jsonCli {
+func CliAvailableChapters(chapters []Chapter) {
+	if CliJson {
 		PrintJson(JsonAvailableChapters{Chapters: chapters})
 	} else {
 		fmt.Println("Chapters:")
@@ -196,8 +251,8 @@ func (cli *Cli) AvailableChapters(chapters []Chapter) {
 	}
 }
 
-func (cli *Cli) AvailableFormats(formats []VideoFormat) {
-	if cli.jsonCli {
+func CliAvailableFormats(formats []VideoFormat) {
+	if CliJson {
 		PrintJson(JsonAvailableFormats{Formats: formats})
 	} else {
 		fmt.Println("Available formats:")
@@ -207,16 +262,16 @@ func (cli *Cli) AvailableFormats(formats []VideoFormat) {
 	}
 }
 
-func (cli *Cli) Format(format VideoFormat) {
-	if cli.jsonCli {
+func CliShowFormat(format VideoFormat) {
+	if CliJson {
 		PrintJson(JsonFormat{Format: format.Name})
 	} else {
 		fmt.Printf("Format: %v\n", format.Name)
 	}
 }
 
-func (cli *Cli) Progress(progress float32, rate float64, delaying bool, waiting bool, retries int, title string) {
-	if cli.jsonCli {
+func CliDownloadProgress(progress float32, rate float64, delaying bool, waiting bool, retries int, title string) {
+	if CliJson {
 		PrintJson(
 			JsonProgress{
 				Progress: progress,
@@ -237,67 +292,33 @@ func (cli *Cli) Progress(progress float32, rate float64, delaying bool, waiting 
 		} else {
 			fmt.Printf("Downloaded %.2f%% at %.2f MB/s                     \r", progress * 100.0, rate / 1000000.0)
 		}
-		if cli.xtermTitle {
+		if CliXtermTitle {
 			XtermSetTitle(fmt.Sprintf("lurch-dl - Downloaded %.2f%% at %.2f MB/s - %v", progress * 100.0, rate / 1000000.0, title))
 		}
 	}
 }
 
-func (cli *Cli) InfoMessage(msg string) {
-	if cli.jsonCli {
+func CliInfoMessage(msg string) {
+	if CliJson {
 		PrintJson(JsonInfo{Message: msg})
 	} else {
 		fmt.Println(msg)
 	}
 }
 
-func (cli *Cli) ErrorMessage(msg string, err error) {
-	if cli.jsonCli {
-		PrintJson(JsonError{Message: msg, Error: err})
+func CliErrorMessage(err error) {
+	if CliJson {
+		PrintJson(JsonError{Message: err.Error(), Error: err})
 	} else {
-		if msg != "" {
-			fmt.Println(msg)
-		}
+		SafeNewline()
+		fmt.Println("An error occured:", err)
 	}
 }
 
-func (cli *Cli) Aborted() {
-	if cli.jsonCli {
+func CliAborted() {
+	if CliJson {
 		PrintJson(JsonError{Message: "aborted"})
 	} else {
 		fmt.Print("\nAborted.                                                ")
-	}
-}
-
-func (cli *Cli) Help() {
-	if cli.jsonCli {
-		PrintJson(JsonError{Message: "Not printing help text in json output mode"})
-	} else {
-		fmt.Println(`lurch-dl --url string       The url to the video
-         [-h --help]        Show this help and exit
-         [--list-chapters]  List chapters and exit
-         [--list-formats]   List available formats and exit
-         [--chapter int]    The chapter you want to download
-                            The calculated start and stop timestamps can be
-                            overwritten by --start and --stop
-                            default: -1 (disabled)
-         [--format string]  The desired video format
-                            default: auto
-         [--output string]  The output file. Will be determined automatically
-                            if omitted.
-         [--start string]   Define a video timestamp to start at, e.g. 12m34s
-         [--stop string]    Define a video timestamp to stop at, e.g. 1h23m45s
-         [--continue]       Continue the download if possible
-         [--overwrite]      Overwrite the output file if it already exists
-         [--max-rate]       The maximum download rate in MB/s - don't set this
-                            too high, you may run into a ratelimit and your
-                            IP address might get banned from the servers.
-                            default: 10.0
-         [--json]           Print all terminal output in json format
-         [--json-data]      Print video data to stdout in json format
-                            implies --json, supersedes --output
-                            disarms --continue and --overwrite
-
-Version: ` + Version)
 	}
 }

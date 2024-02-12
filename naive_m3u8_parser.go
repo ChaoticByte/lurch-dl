@@ -3,7 +3,6 @@
 package main
 
 import (
-	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -52,7 +51,7 @@ func parseChunkListFromM3u8(m3u8 string, baseurl string) (ChunkList, error) {
 					}
 					chunkDuration, err := strconv.ParseFloat(targetDuration[1], 64)
 					if err != nil {
-						return chunklist, fmt.Errorf("could not convert %v to float", targetDuration[1])
+						return chunklist, err
 					}
 					chunklist.ChunkDuration = chunkDuration
 				}

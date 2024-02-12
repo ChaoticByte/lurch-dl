@@ -3,7 +3,6 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -27,7 +26,7 @@ func httpGet(url string, headers []http.Header, timeout time.Duration) ([]byte, 
 	}
 	data, err = io.ReadAll(resp.Body)
 	if resp.StatusCode != 200 {
-		return data, fmt.Errorf("status code %v while fetching %v", resp.StatusCode, url)
+		return data, &HttpStatusCodeError{Url: url, StatusCode: resp.StatusCode}
 	}
 	return data, err
 }

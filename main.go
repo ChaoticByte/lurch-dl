@@ -2,9 +2,12 @@
 
 package main
 
+import (
+	"os"
+)
+
 var Version = "development"
 
 func main() {
-	ui := Cli{}
-	ui.Run()
+	os.Exit(CliRun())
 }
