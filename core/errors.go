@@ -1,11 +1,11 @@
 // Copyright (c) 2023 Julian Müller (ChaoticByte)
 
-package main
+package core
 
 import "fmt"
 
 type HttpStatusCodeError struct {
-	Url string
+	Url        string
 	StatusCode int
 }
 
@@ -35,7 +35,7 @@ type FileExistsError struct {
 }
 
 func (err *FileExistsError) Error() string {
-	return "File '" + err.Filename + "' already exists."
+	return "File '" + err.Filename + "' already exists. See the available options on how to proceed."
 }
 
 type FormatNotFoundError struct {

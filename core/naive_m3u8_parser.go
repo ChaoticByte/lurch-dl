@@ -1,6 +1,6 @@
 // Copyright (c) 2023 Julian Müller (ChaoticByte)
 
-package main
+package core
 
 import (
 	"regexp"

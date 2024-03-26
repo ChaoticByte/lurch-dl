@@ -60,13 +60,7 @@ lurch-dl --url string       Die URL zum Video
                             eines IP-Bans aufgrund von Ratelimits seitens der
                             Server besteht
                             default: 10.0
-         [--json]           Terminal-Ausgabe in JSON-Format
-         [--json-data]      Ausgabe der Videodaten in JSON-Format
-                            impliziert --json, hebt --output, --continue und
-                            --overwrite auf
 ```
-
-Das JSON-Interface (`--json` und `--json-data`) ist [-> hier](./docs/README.md) documentiert.
 
 ### Windows
 
