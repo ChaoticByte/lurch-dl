@@ -177,11 +177,16 @@ func CliRun() int {
 		CliAvailableFormats(streamEp.Formats)
 		return 1
 	}
-	CliShowFormat(format)
+	cli.InfoMessage(fmt.Sprintf("Format:  %v", format.Name))
 	if args.ChapterIdx >= 0 {
 		cli.InfoMessage(fmt.Sprintf("Chapter: %v. %v", cliArgs.ChapterNum, streamEp.Chapters[args.ChapterIdx].Title))
 	}
+	// We already set the output file correctly so we can output it
+	if args.OutputFile == "" {
+		args.OutputFile = streamEp.GetProposedFilename(args.ChapterIdx)
+	}
 	// Start Download
+	cli.InfoMessage(fmt.Sprintf("Output:  %v", args.OutputFile))
 	fmt.Print("\n")
 	if err = streamEp.Download(args, &cli, make(chan os.Signal, 1)); err != nil {
 		cli.ErrorMessage(err)
@@ -203,10 +208,6 @@ func CliAvailableFormats(formats []core.VideoFormat) {
 	for _, f := range formats {
 		fmt.Println(" - " + f.Name)
 	}
-}
-
-func CliShowFormat(format core.VideoFormat) {
-	fmt.Printf("Format: %v\n", format.Name)
 }
 
 type Cli struct{}
