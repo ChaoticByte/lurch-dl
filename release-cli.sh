@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-setopt -e
-
 WORKDIR="./cli"
 CORE_DIR="./core"
 OUTPUT_DIR="../dist"
