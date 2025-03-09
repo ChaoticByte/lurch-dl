@@ -54,7 +54,7 @@ Continue a download:
 ./lurch-dl.exe --url https://gronkh.tv/streams/777 --continue
 ```
 
-Download a specific chapter (Windows):
+Download a specific chapter:
 
 ```
 ./lurch-dl.exe --url https://gronkh.tv/streams/777 --chapter 2
@@ -73,7 +73,7 @@ Specify a start- and stop-timestamp:
 ./lurch-dl --url https://gronkh.tv/streams/777 --start 5h6m41s --stop 5h6m58s
 ```
 
-List all available formats for a video (Linux):
+List all available formats for a video:
 
 ```
 ./lurch-dl --url https://gronkh.tv/streams/777 --info
@@ -91,7 +91,7 @@ Chapters:
            3    9h35m0s Just Chatting
 ```
 
-Download the video in a specific format (Linux):
+Download the video in a specific format:
 
 ```
 ./lurch-dl --url https://gronkh.tv/streams/777 --format 720p
@@ -101,7 +101,7 @@ Format:    720p
 [...]
 ```
 
-Specify a filename (Windows):
+Specify a filename:
 
 ```
 ./lurch-dl.exe --url https://gronkh.tv/streams/777 --output Stream777.ts
