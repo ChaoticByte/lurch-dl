@@ -32,30 +32,7 @@ On Linux, you may have to mark the file as executable before being able to run i
 
 ## Cli Usage
 
-If you chose the cli variant of this software.
-
-```
-lurch-dl --url string       The url to the video
-         [-h --help]        Show this help and exit
-         [--list-chapters]  List chapters and exit
-         [--list-formats]   List available formats and exit
-         [--chapter int]    The chapter you want to download
-                            The calculated start and stop timestamps can be
-                            overwritten by --start and --stop
-                            default: -1 (disabled)
-         [--format string]  The desired video format
-                            default: auto
-         [--output string]  The output file. Will be determined automatically
-                            if omitted.
-         [--start string]   Define a video timestamp to start at, e.g. 12m34s
-         [--stop string]    Define a video timestamp to stop at, e.g. 1h23m45s
-         [--continue]       Continue the download if possible
-         [--overwrite]      Overwrite the output file if it already exists
-         [--max-rate]       The maximum download rate in MB/s - don't set this
-                            too high, you may run into a ratelimit and your
-                            IP address might get banned from the servers.
-                            default: 10.0
-```
+Run `lurch-dl --help` to see available options.
 
 ### Examples
 
