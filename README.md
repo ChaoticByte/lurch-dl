@@ -18,7 +18,6 @@ Definetly not a commandline downloader for https://gronkh.tv risen from the dead
 - Downloads are capped to 10 Mbyte/s and buffering is simulated to pre-empt IP blocking due to API ratelimiting
 - Start- and stop-timestamps are not very accurate (± 8 seconds)
 - Some videoplayers may have problems with the resulting file. To fix this, you can use ffmpeg to rewrite the video into a MKV-File: `ffmpeg -i video.ts -acodec copy -vcodec copy video.mkv`
-- Emojis and other Unicode characters don't get displayed properly in a Powershell Console
 
 ## Supported Platforms
 
