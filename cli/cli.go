@@ -38,11 +38,25 @@ func XtermSetTitle(title string) {
 
 // Commandline
 
-type CliOnlyArguments struct {
+type Arguments struct {
+	Url string `json:"url"`
+	FormatName string `json:"format_name"`
+	OutputFile string `json:"output_file"`
+	TimestampStart string `json:"timestamp_start"`
+	TimestampStop string `json:"timestamp_stop"`
+	Overwrite bool `json:"overwrite"`
+	ContinueDl bool `json:"continue"`
+	//
 	Help         bool `json:"-"`
 	ListChapters bool `json:"-"`
 	ListFormats  bool `json:"-"`
-	ChapterNum   int  `json:"chapter_num"`
+	UnparsedChapterNum   int  `json:"chapter_num"`
+	// Parsed
+	Video core.GtvVideo `json:"-"`
+	StartDuration time.Duration `json:"-"`
+	StopDuration time.Duration `json:"-"`
+	ChapterIdx int `json:"-"`
+	Ratelimit float64 `json:"-"`
 }
 
 func CliShowHelp() {
@@ -71,17 +85,16 @@ lurch-dl --url string       The url to the video
 Version: ` + core.Version)
 }
 
-func CliParseArguments() (core.Arguments, CliOnlyArguments, error) {
+func CliParseArguments() (Arguments, error) {
 	var err error
 	var ratelimitMbs float64
-	a := core.Arguments{}
-	c := CliOnlyArguments{}
-	flag.BoolVar(&c.Help, "h", false, "")
-	flag.BoolVar(&c.Help, "help", false, "")
-	flag.BoolVar(&c.ListChapters, "list-chapters", false, "")
-	flag.BoolVar(&c.ListFormats, "list-formats", false, "")
+	a := Arguments{}
+	flag.BoolVar(&a.Help, "h", false, "")
+	flag.BoolVar(&a.Help, "help", false, "")
+	flag.BoolVar(&a.ListChapters, "list-chapters", false, "")
+	flag.BoolVar(&a.ListFormats, "list-formats", false, "")
 	flag.StringVar(&a.Url, "url", "", "")
-	flag.IntVar(&c.ChapterNum, "chapter", 0, "") // 0 -> chapter idx -1 -> complete stream
+	flag.IntVar(&a.UnparsedChapterNum, "chapter", 0, "") // 0 -> chapter idx -1 -> complete stream
 	flag.StringVar(&a.FormatName, "format", "auto", "")
 	flag.StringVar(&a.OutputFile, "output", "", "")
 	flag.StringVar(&a.TimestampStart, "start", "", "")
@@ -92,17 +105,17 @@ func CliParseArguments() (core.Arguments, CliOnlyArguments, error) {
 	flag.Parse()
 	a.Video, err = core.ParseGtvVideoUrl(a.Url)
 	if err != nil {
-		return a, c, err
+		return a, err
 	}
 	if a.Video.Class != "streams" {
-		return a, c, errors.New("video category '" + a.Video.Class + "' not supported")
+		return a, errors.New("video category '" + a.Video.Class + "' not supported")
 	}
 	if a.TimestampStart == "" {
 		a.StartDuration = -1
 	} else {
 		a.StartDuration, err = time.ParseDuration(a.TimestampStart)
 		if err != nil {
-			return a, c, err
+			return a, err
 		}
 	}
 	if a.TimestampStop == "" {
@@ -110,15 +123,15 @@ func CliParseArguments() (core.Arguments, CliOnlyArguments, error) {
 	} else {
 		a.StopDuration, err = time.ParseDuration(a.TimestampStop)
 		if err != nil {
-			return a, c, err
+			return a, err
 		}
 	}
-	a.ChapterIdx = c.ChapterNum - 1
+	a.ChapterIdx = a.UnparsedChapterNum - 1
 	a.Ratelimit = ratelimitMbs * 1_000_000.0 // MB/s -> B/s
 	if a.Ratelimit <= 0 {
-		return a, c, errors.New("the value of --max-rate must be greater than 0")
+		return a, errors.New("the value of --max-rate must be greater than 0")
 	}
-	return a, c, err
+	return a, err
 }
 
 // Main
@@ -128,8 +141,8 @@ func CliRun() int {
 	defer fmt.Print("\n")
 	// cli arguments & help text
 	flag.Usage = CliShowHelp
-	args, cliArgs, err := CliParseArguments()
-	if cliArgs.Help {
+	args, err := CliParseArguments()
+	if args.Help {
 		CliShowHelp()
 		return 0
 	} else if args.Url == "" || err != nil {
@@ -141,11 +154,13 @@ func CliRun() int {
 	}
 	// detect terminal features
 	XtermDetectFeatures()
+	//
+	api := core.GtvApi{};
 	// Get video metadata
 	if CliXtermTitle {
 		XtermSetTitle("lurch-dl - Fetching video metadata ...")
 	}
-	streamEp, err := core.GetStreamEpisode(args.Video.Id)
+	streamEp, err := api.GetStreamEpisode(args.Video.Id)
 	if err != nil {
 		cli.ErrorMessage(err)
 		return 1
@@ -155,17 +170,17 @@ func CliRun() int {
 	// Check and list chapters/formats and exit
 	if args.ChapterIdx >= 0 {
 		if args.ChapterIdx >= len(streamEp.Chapters) {
-			cli.ErrorMessage(&core.ChapterNotFoundError{ChapterNum: cliArgs.ChapterNum})
+			cli.ErrorMessage(&core.ChapterNotFoundError{ChapterNum: args.UnparsedChapterNum})
 			CliAvailableChapters(streamEp.Chapters)
 			return 1
 		}
 	}
-	if cliArgs.ListChapters || cliArgs.ListFormats {
-		if cliArgs.ListChapters {
+	if args.ListChapters || args.ListFormats {
+		if args.ListChapters {
 			fmt.Print("\n")
 			CliAvailableChapters(streamEp.Chapters)
 		}
-		if cliArgs.ListFormats {
+		if args.ListFormats {
 			fmt.Print("\n")
 			CliAvailableFormats(streamEp.Formats)
 		}
@@ -178,8 +193,11 @@ func CliRun() int {
 		return 1
 	}
 	cli.InfoMessage(fmt.Sprintf("Format:  %v", format.Name))
-	if args.ChapterIdx >= 0 {
-		cli.InfoMessage(fmt.Sprintf("Chapter: %v. %v", cliArgs.ChapterNum, streamEp.Chapters[args.ChapterIdx].Title))
+	// chapter
+	targetChapter := core.Chapter{Index: -1} // set Index to -1 for noop
+	if len(streamEp.Chapters) > 0 && args.ChapterIdx >= 0 {
+		targetChapter = streamEp.Chapters[args.ChapterIdx]
+		cli.InfoMessage(fmt.Sprintf("Chapter: %v. %v", args.UnparsedChapterNum, targetChapter.Title))
 	}
 	// We already set the output file correctly so we can output it
 	if args.OutputFile == "" {
@@ -188,12 +206,33 @@ func CliRun() int {
 	// Start Download
 	cli.InfoMessage(fmt.Sprintf("Output:  %v", args.OutputFile))
 	fmt.Print("\n")
-	if err = streamEp.Download(args, &cli, make(chan os.Signal, 1)); err != nil {
-		cli.ErrorMessage(err)
-		return 1
+	successful := false
+	for p := range api.DownloadEpisode(
+		streamEp,
+		targetChapter,
+		args.FormatName,
+		args.OutputFile,
+		args.Overwrite,
+		args.ContinueDl,
+		args.StartDuration,
+		args.StopDuration,
+		args.Ratelimit,
+		make(chan os.Signal, 1),
+	) {
+		if p.Error != nil {
+			cli.ErrorMessage(p.Error)
+			return 1
+		}
+		if p.Success { successful = true }
+		if p.Aborted { cli.Aborted() } else {
+			cli.DownloadProgress(p.Progress, p.Rate, p.Delaying, p.Waiting, p.Retries, p.Title)
+		}
 	}
 	fmt.Print("\n")
-	return 0
+	if !successful {
+		cli.ErrorMessage(errors.New("download failed"))
+		return 1
+	} else { return 0 }
 }
 
 func CliAvailableChapters(chapters []core.Chapter) {

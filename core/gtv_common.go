@@ -4,15 +4,14 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"time"
 )
 
-// The following two values are used to simulate buffering
-const RatelimitDelay = 2.0      // in Seconds; How long to delay the next chunk download.
-const RatelimitDelayAfter = 5.0 // in Seconds; Delay the next chunk download after this duration.
-
 var videoUrlRegex = regexp.MustCompile(`gronkh\.tv\/([a-z]+)\/([0-9]+)`)
+
+//
 
 type GtvVideo struct {
 	Class string `json:"class"`
@@ -22,7 +21,7 @@ type GtvVideo struct {
 func ParseGtvVideoUrl(url string) (GtvVideo, error) {
 	video := GtvVideo{}
 	match := videoUrlRegex.FindStringSubmatch(url)
-	if match == nil || len(match) < 2 {
+	if len(match) < 2 {
 		return video, errors.New("Could not parse URL " + url)
 	}
 	video.Class = match[1]
@@ -30,10 +29,14 @@ func ParseGtvVideoUrl(url string) (GtvVideo, error) {
 	return video, nil
 }
 
+//
+
 type VideoFormat struct {
 	Name string `json:"format"`
 	Url  string `json:"url"`
 }
+
+//
 
 type ChunkList struct {
 	BaseUrl       string
@@ -57,5 +60,53 @@ func (cl *ChunkList) Cut(from time.Duration, to time.Duration) ChunkList {
 		BaseUrl:       cl.BaseUrl,
 		Chunks:        newChunks,
 		ChunkDuration: cl.ChunkDuration,
+	}
+}
+
+//
+
+type Chapter struct {
+	Index  int           `json:"index"`
+	Title  string        `json:"title"`
+	Offset time.Duration `json:"offset"`
+}
+
+//
+
+type StreamEpisode struct {
+	Episode string        `json:"episode"`
+	Formats []VideoFormat `json:"formats"`
+	Title   string        `json:"title"`
+	// ProposedFilename string `json:"proposed_filename"`
+	PlaylistUrl string    `json:"playlist_url"`
+	Chapters    []Chapter `json:"chapters"`
+}
+
+func (ep *StreamEpisode) GetFormatByName(formatName string) (VideoFormat, error) {
+	var idx int
+	var err error = nil
+	if formatName == "auto" {
+		// at the moment, the best format is always the first -> 0
+		return ep.Formats[idx], nil
+	} else {
+		formatFound := false
+		for i, f := range ep.Formats {
+			if f.Name == formatName {
+				idx = i
+				formatFound = true
+			}
+		}
+		if !formatFound {
+			err = &FormatNotFoundError{FormatName: formatName}
+		}
+		return ep.Formats[idx], err
+	}
+}
+
+func (ep *StreamEpisode) GetProposedFilename(chapterIdx int) string {
+	if chapterIdx >= 0 && chapterIdx < len(ep.Chapters) {
+		return fmt.Sprintf("GTV%04s - %v. %s.ts", ep.Episode, chapterIdx+1, sanitizeUnicodeFilename(ep.Chapters[chapterIdx].Title))
+	} else {
+		return sanitizeUnicodeFilename(ep.Title) + ".ts"
 	}
 }
