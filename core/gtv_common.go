@@ -13,8 +13,26 @@ var videoUrlRegex = regexp.MustCompile(`gronkh\.tv\/([a-z]+)\/([0-9]+)`)
 
 //
 
+type VideoFormat struct {
+	Name string `json:"format"`
+	Url  string `json:"url"`
+}
+
+type Chapter struct {
+	Index  int           `json:"index"`
+	Title  string        `json:"title"`
+	Offset time.Duration `json:"offset"`
+}
+
+type VideoTag struct {
+	Id    int    `json:"id"`
+	Title string `json:"title"`
+}
+
+//
+
 type GtvVideo struct {
-	Class string `json:"class"`
+	Category string `json:"category"`
 	Id    string `json:"id"`
 }
 
@@ -24,16 +42,9 @@ func ParseGtvVideoUrl(url string) (GtvVideo, error) {
 	if len(match) < 2 {
 		return video, errors.New("Could not parse URL " + url)
 	}
-	video.Class = match[1]
+	video.Category = match[1]
 	video.Id = match[2]
 	return video, nil
-}
-
-//
-
-type VideoFormat struct {
-	Name string `json:"format"`
-	Url  string `json:"url"`
 }
 
 //
@@ -65,21 +76,16 @@ func (cl *ChunkList) Cut(from time.Duration, to time.Duration) ChunkList {
 
 //
 
-type Chapter struct {
-	Index  int           `json:"index"`
-	Title  string        `json:"title"`
-	Offset time.Duration `json:"offset"`
-}
-
-//
-
 type StreamEpisode struct {
-	Episode string        `json:"episode"`
-	Formats []VideoFormat `json:"formats"`
-	Title   string        `json:"title"`
-	// ProposedFilename string `json:"proposed_filename"`
-	PlaylistUrl string    `json:"playlist_url"`
-	Chapters    []Chapter `json:"chapters"`
+	Episode     string        `json:"episode"`
+	Title       string        `json:"title"`
+	Formats     []VideoFormat `json:"formats"`
+	Chapters    []Chapter     `json:"chapters"`
+	PlaylistUrl string        `json:"playlist_url"`
+	Length      time.Duration `json:"source_length"`
+	Views       int           `json:"views"`
+	Timestamp   string        `json:"created_at"`
+	Tags        []VideoTag    `json:"tags"`
 }
 
 func (ep *StreamEpisode) GetFormatByName(formatName string) (VideoFormat, error) {

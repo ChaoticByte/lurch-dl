@@ -64,6 +64,8 @@ func (api *GtvApi) GetStreamEpisode(episode string) (StreamEpisode, error) {
 	// Title
 	json.Unmarshal(info_data, &ep)
 	ep.Title = strings.ToValidUTF8(ep.Title, "")
+	// Length
+	ep.Length = ep.Length * time.Second
 	// Sort Chapters, correct offset and set index
 	sort.Slice(ep.Chapters, func(i int, j int) bool {
 		return ep.Chapters[i].Offset < ep.Chapters[j].Offset
@@ -194,7 +196,7 @@ func (api *GtvApi) DownloadEpisode(
 			// Handle Interrupts
 			<-interruptChan
 			keyboardInterrupt = true
-			yield(DownloadProgress{Progress: progress, Rate: actualRate, Retries: 0, Title: ep.Title})
+			yield(DownloadProgress{Aborted: true, Progress: progress, Rate: actualRate, Retries: 0, Title: ep.Title})
 		}()
 		for i, chunk := range chunklist.Chunks {
 			if i < nextChunk {
