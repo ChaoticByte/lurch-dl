@@ -22,7 +22,7 @@ Definetly not a commandline downloader for https://gronkh.tv risen from the dead
 
 ## Supported Platforms
 
-Tested on Linux and Windows (64bit).
+Only compatible with Linux.
 
 ## Download / Installation
 
@@ -39,7 +39,7 @@ Run `lurch-dl --help` to see available options.
 Download a video in its best available format:
 
 ```
-./lurch-dl.exe --url https://gronkh.tv/streams/777
+./lurch-dl --url https://gronkh.tv/streams/777
 
 Title:     GTV0777, 2023-11-09 - DIESER STREAM IST ILLEGAL UND ...
 Format:    1080p60
@@ -51,13 +51,13 @@ Downloaded 0.32% at 10.00 MB/s ...
 Continue a download:
 
 ```
-./lurch-dl.exe --url https://gronkh.tv/streams/777 --continue
+./lurch-dl --url https://gronkh.tv/streams/777 --continue
 ```
 
 Download a specific chapter:
 
 ```
-./lurch-dl.exe --url https://gronkh.tv/streams/777 --chapter 2
+./lurch-dl --url https://gronkh.tv/streams/777 --chapter 2
 
 Title:     GTV0777, 2023-11-09 - DIESER STREAM IST ILLEGAL UND ...
 Format:    1080p60
@@ -104,7 +104,7 @@ Format:    720p
 Specify a filename:
 
 ```
-./lurch-dl.exe --url https://gronkh.tv/streams/777 --output Stream777.ts
+./lurch-dl --url https://gronkh.tv/streams/777 --output Stream777.ts
 ```
 
 </details>
