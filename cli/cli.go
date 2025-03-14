@@ -3,7 +3,6 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -50,12 +49,11 @@ var Arguments struct {
 	Help bool `json:"-"`
 	VideoInfo bool `json:"-"`
 	ListFormats bool `json:"-"`
-	UnparsedChapterNum   int  `json:"chapter_num"`
+	ChapterNum   int  `json:"chapter_num"`
 	// Parsed
 	Video core.GtvVideo `json:"-"`
 	StartDuration time.Duration `json:"-"`
 	StopDuration time.Duration `json:"-"`
-	ChapterIdx int `json:"-"`
 	Ratelimit float64 `json:"-"`
 }
 
@@ -91,7 +89,7 @@ func CliParseArguments() error {
 	flag.BoolVar(&Arguments.Help, "help", false, "")
 	flag.BoolVar(&Arguments.VideoInfo, "info", false, "")
 	flag.StringVar(&Arguments.Url, "url", "", "")
-	flag.IntVar(&Arguments.UnparsedChapterNum, "chapter", 0, "") // 0 -> chapter idx -1 -> complete stream
+	flag.IntVar(&Arguments.ChapterNum, "chapter", 0, "") // 0 -> chapter idx -1 -> complete stream
 	flag.StringVar(&Arguments.FormatName, "format", "auto", "")
 	flag.StringVar(&Arguments.OutputFile, "output", "", "")
 	flag.StringVar(&Arguments.TimestampStart, "start", "", "")
@@ -103,9 +101,6 @@ func CliParseArguments() error {
 	Arguments.Video, err = core.ParseGtvVideoUrl(Arguments.Url)
 	if err != nil {
 		return err
-	}
-	if Arguments.Video.Category != "streams" {
-		return errors.New("video category '" + Arguments.Video.Category + "' not supported")
 	}
 	if Arguments.TimestampStart == "" {
 		Arguments.StartDuration = -1
@@ -123,10 +118,9 @@ func CliParseArguments() error {
 			return err
 		}
 	}
-	Arguments.ChapterIdx = Arguments.UnparsedChapterNum - 1
 	Arguments.Ratelimit = ratelimitMbs * 1_000_000.0 // MB/s -> B/s
 	if Arguments.Ratelimit <= 0 {
-		return errors.New("the value of --max-rate must be greater than 0")
+		return &GenericCliAgumentError{Msg: "the value of --max-rate must be greater than 0"}
 	}
 	return err
 }
@@ -162,13 +156,16 @@ func CliRun() int {
 	fmt.Print("\n")
 	fmt.Printf("Title:     %s\n", streamEp.Title)
 	// Check and list chapters/formats and exit
-	if Arguments.ChapterIdx >= 0 {
-		if Arguments.ChapterIdx >= len(streamEp.Chapters) {
-			CliErrorMessage(&core.ChapterNotFoundError{ChapterNum: Arguments.UnparsedChapterNum})
-			CliAvailableChapters(streamEp.Chapters)
-			return 1
-		}
+	targetChapter, err := streamEp.GetChapterByNumber(Arguments.ChapterNum)
+	if err != nil {
+		CliErrorMessage(err)
+		CliAvailableChapters(streamEp.Chapters)
+		return 1
 	}
+	if Arguments.ChapterNum > 0 && len(streamEp.Chapters) > 0 {
+		fmt.Printf("Chapter:   %v. %v\n", Arguments.ChapterNum, targetChapter.Title)
+	}
+	// Video Info
 	if Arguments.VideoInfo {
 		fmt.Printf("Episode:   %s\n", streamEp.Episode)
 		fmt.Printf("Length:    %s\n", streamEp.Length)
@@ -198,22 +195,16 @@ func CliRun() int {
 		return 1
 	}
 	fmt.Printf("Format:    %v\n", format.Name)
-	// chapter
-	targetChapter := core.Chapter{Index: -1} // set Index to -1 for noop
-	if len(streamEp.Chapters) > 0 && Arguments.ChapterIdx >= 0 {
-		targetChapter = streamEp.Chapters[Arguments.ChapterIdx]
-		fmt.Printf("Chapter:   %v. %v\n", Arguments.UnparsedChapterNum, targetChapter.Title)
-	}
 	// We already set the output file correctly so we can output it
 	if Arguments.OutputFile == "" {
-		Arguments.OutputFile = streamEp.GetProposedFilename(Arguments.ChapterIdx)
+		Arguments.OutputFile = streamEp.GetProposedFilename(targetChapter)
 	}
 	// Start Download
 	fmt.Printf("Output:    %v\n", Arguments.OutputFile)
 	fmt.Print("\n")
 	successful := false
 	aborted := false
-	for p := range core.DownloadEpisode(
+	for p := range core.DownloadStreamEpisode(
 		streamEp,
 		targetChapter,
 		Arguments.FormatName,
@@ -242,7 +233,7 @@ func CliRun() int {
 		fmt.Print("\nAborted.                                                ")
 		return 130
 	} else if !successful {
-		CliErrorMessage(errors.New("download failed"))
+		CliErrorMessage(&GenericDownloadError{})
 		return 1
 	} else { return 0 }
 }

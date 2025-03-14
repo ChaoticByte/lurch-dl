@@ -4,7 +4,6 @@ package core
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"iter"
@@ -113,7 +112,7 @@ func GetStreamChunkList(video VideoFormat) (ChunkList, error) {
 	return chunklist, err
 }
 
-func DownloadEpisode(
+func DownloadStreamEpisode(
 	ep StreamEpisode,
 	chapter Chapter,
 	formatName string,
@@ -128,7 +127,7 @@ func DownloadEpisode(
 	return func (yield func(DownloadProgress) bool) {
 		// Set automatic values
 		if outputFile == "" {
-			outputFile = ep.GetProposedFilename(chapter.Index)
+			outputFile = ep.GetProposedFilename(chapter)
 		}
 		if chapter.Index >= 0 {
 			if startDuration < 0 {
@@ -167,7 +166,7 @@ func DownloadEpisode(
 		if continueDl {
 			infoFileData, err := os.ReadFile(infoFilename)
 			if err != nil {
-				yield(DownloadProgress{Error: errors.New("could not access download info file, can't continue download")})
+				yield(DownloadProgress{Error: &DownloadInfoFileReadError{}})
 				return
 			}
 			i, err := strconv.ParseInt(string(infoFileData), 10, 32)

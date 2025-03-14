@@ -3,7 +3,6 @@
 package core
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"time"
@@ -40,10 +39,13 @@ func ParseGtvVideoUrl(url string) (GtvVideo, error) {
 	video := GtvVideo{}
 	match := videoUrlRegex.FindStringSubmatch(url)
 	if len(match) < 2 {
-		return video, errors.New("Could not parse URL " + url)
+		return video, &GtvVideoUrlParseError{Url: url}
 	}
 	video.Category = match[1]
 	video.Id = match[2]
+	if video.Category != "streams" {
+		return video, &VideoCategoryUnsupportedError{Category: video.Category}
+	}
 	return video, nil
 }
 
@@ -109,9 +111,21 @@ func (ep *StreamEpisode) GetFormatByName(formatName string) (VideoFormat, error)
 	}
 }
 
-func (ep *StreamEpisode) GetProposedFilename(chapterIdx int) string {
-	if chapterIdx >= 0 && chapterIdx < len(ep.Chapters) {
-		return fmt.Sprintf("GTV%04s - %v. %s.ts", ep.Episode, chapterIdx+1, sanitizeUnicodeFilename(ep.Chapters[chapterIdx].Title))
+func (ep *StreamEpisode) GetChapterByNumber(number int) (Chapter, error) {
+	chapter := Chapter{Index: -1} // set Index to -1 for noop
+	idx := number-1
+	if idx >= 0 && idx >= len(ep.Chapters) {
+		return chapter, &ChapterNotFoundError{ChapterNum: number}
+	}
+	if len(ep.Chapters) > 0 && idx >= 0 {
+		chapter = ep.Chapters[idx]
+	}
+	return chapter, nil
+}
+
+func (ep *StreamEpisode) GetProposedFilename(chapter Chapter) string {
+	if chapter.Index >= 0 && chapter.Index < len(ep.Chapters) {
+		return fmt.Sprintf("GTV%04s - %v. %s.ts", ep.Episode, chapter.Index, sanitizeUnicodeFilename(ep.Chapters[chapter.Index].Title))
 	} else {
 		return sanitizeUnicodeFilename(ep.Title) + ".ts"
 	}

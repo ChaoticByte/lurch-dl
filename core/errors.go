@@ -35,7 +35,7 @@ type FileExistsError struct {
 }
 
 func (err *FileExistsError) Error() string {
-	return "File '" + err.Filename + "' already exists. See the available options on how to proceed."
+	return "file '" + err.Filename + "' already exists - see the available options on how to proceed"
 }
 
 type FormatNotFoundError struct {
@@ -43,7 +43,7 @@ type FormatNotFoundError struct {
 }
 
 func (err *FormatNotFoundError) Error() string {
-	return "Format " + err.FormatName + " is not available."
+	return "format " + err.FormatName + " is not available"
 }
 
 type ChapterNotFoundError struct {
@@ -51,5 +51,27 @@ type ChapterNotFoundError struct {
 }
 
 func (err *ChapterNotFoundError) Error() string {
-	return fmt.Sprintf("Chapter %v not found.", err.ChapterNum)
+	return fmt.Sprintf("chapter %v not found", err.ChapterNum)
+}
+
+type VideoCategoryUnsupportedError struct {
+	Category string
+}
+
+func (err *VideoCategoryUnsupportedError) Error() string {
+	return fmt.Sprintf("video category '%v' not supported", err.Category)
+}
+
+type GtvVideoUrlParseError struct {
+	Url string
+}
+
+func (err *GtvVideoUrlParseError) Error() string {
+	return fmt.Sprintf("Could not parse URL %v", err.Url)
+}
+
+type DownloadInfoFileReadError struct {}
+
+func (err *DownloadInfoFileReadError) Error() string {
+	return "could not read download info file, can't continue download"
 }
