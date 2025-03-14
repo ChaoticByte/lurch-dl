@@ -25,6 +25,18 @@ const RatelimitDelayAfter = 5.0 // in Seconds; Delay the next chunk download aft
 const ApiBaseurlStreamEpisodeInfo = "https://api.gronkh.tv/v1/video/info?episode=%s"
 const ApiBaseurlStreamEpisodePlInfo = "https://api.gronkh.tv/v1/video/playlist?episode=%s"
 
+type DownloadProgress struct {
+	Aborted bool
+	Error error
+	Success bool
+	Delaying bool
+	Progress float32
+	Rate float64
+	Retries int
+	Title string
+	Waiting bool
+}
+
 var ApiHeadersBase = http.Header{
 	"User-Agent":      {"Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/119.0"},
 	"Accept-Language": {"de,en-US;q=0.7,en;q=0.3"},
@@ -48,9 +60,7 @@ var ApiHeadersVideoAdditional = http.Header{
 	"Accept": {"*/*"},
 }
 
-type GtvApi struct{}
-
-func (api *GtvApi) GetStreamEpisode(episode string) (StreamEpisode, error) {
+func GetStreamEpisode(episode string) (StreamEpisode, error) {
 	ep := StreamEpisode{}
 	ep.Episode = episode
 	info_data, err := httpGet(
@@ -93,7 +103,7 @@ func (api *GtvApi) GetStreamEpisode(episode string) (StreamEpisode, error) {
 	return ep, err
 }
 
-func (api *GtvApi) GetStreamChunkList(video VideoFormat) (ChunkList, error) {
+func GetStreamChunkList(video VideoFormat) (ChunkList, error) {
 	baseUrl := video.Url[:strings.LastIndex(video.Url, "/")]
 	data, err := httpGet(video.Url, []http.Header{ApiHeadersBase, ApiHeadersMetaAdditional}, time.Second*10)
 	if err != nil {
@@ -103,7 +113,7 @@ func (api *GtvApi) GetStreamChunkList(video VideoFormat) (ChunkList, error) {
 	return chunklist, err
 }
 
-func (api *GtvApi) DownloadEpisode(
+func DownloadEpisode(
 	ep StreamEpisode,
 	chapter Chapter,
 	formatName string,
@@ -181,7 +191,7 @@ func (api *GtvApi) DownloadEpisode(
 		}
 		// download
 		format, _ := ep.GetFormatByName(formatName) // we don't have to check the error, as it was already checked by CliRun()
-		chunklist, err := api.GetStreamChunkList(format)
+		chunklist, err := GetStreamChunkList(format)
 		chunklist = chunklist.Cut(startDuration, stopDuration)
 		if err != nil {
 			yield(DownloadProgress{Error: err})
