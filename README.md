@@ -1,9 +1,10 @@
 
-<details><summary>what could it be?</summary>
+Definitely not an unofficial commandline downloader for https://gronkh.tv
 
-<br>
+## Compatibility
 
-Definetly not a commandline downloader for https://gronkh.tv risen from the dead.
+This tool is only compatible with recent Linux-based operating systems.  
+To run it on Windows, make use of WSL.
 
 ## Features
 
@@ -13,25 +14,26 @@ Definetly not a commandline downloader for https://gronkh.tv risen from the dead
 - Continuable Downloads
 - Show infos about that Episode
 
-## Known Issues
+## Known Issues / Limitations
 
-- Downloads are capped to 10 Mbyte/s and buffering is simulated to pre-empt IP blocking due to API ratelimiting
-- Start- and stop-timestamps are not very accurate (± 8 seconds)
-- Some videoplayers may have problems with the resulting file. To fix this, you can use ffmpeg to rewrite the video into a MKV-File: `ffmpeg -i video.ts -acodec copy -vcodec copy video.mkv`
-
-## Supported Platforms
-
-Only compatible with Linux.
+- Downloads are **capped to 10 Mbyte/s by default** and buffering is simulated to pre-empt IP blocking due to API rate-limiting
+- Because of the length of video chunks, **start- and stop-timestamps are inaccurate** (± 8 seconds)
+- **Some videoplayers may have problems with the downloaded video file**. To fix this, you can use ffmpeg to rewrite the video into a MKV-File:  
+  `ffmpeg -i video.ts -acodec copy -vcodec copy video.mkv`
 
 ## Download / Installation
 
-New versions will appear under [Releases](https://github.com/ChaoticByte/lurch-dl/releases). Just download the application and run it via the terminal/cmd/powershell/...
+New versions will appear under [Releases](https://github.com/ChaoticByte/lurch-dl/releases).  
+Just download the application and run it via your favourite terminal emulator.
 
-On Linux, you may have to mark the file as executable before being able to run it.
+> Note: **You may have to mark the file as executable before being able to run it.**
 
-## Cli Usage
+## Usage
+
 
 Run `lurch-dl --help` to see available options.
+
+> Note: This tool runs entirely on the command line.
 
 ### Examples
 
@@ -105,5 +107,3 @@ Specify a filename:
 ```
 ./lurch-dl --url https://gronkh.tv/streams/777 --output Stream777.ts
 ```
-
-</details>
