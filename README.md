@@ -23,7 +23,7 @@ To run it on Windows, make use of WSL.
 
 ## Download / Installation
 
-New versions will appear under [Releases](https://github.com/ChaoticByte/lurch-dl/releases).  
+New versions will appear under [Releases (remotebranch.eu)](https://remotebranch.eu/ChaoticByte/lurch-dl/releases).  
 Just download the application and run it via your favourite terminal emulator.
 
 > Note: **You may have to mark the file as executable before being able to run it.**
