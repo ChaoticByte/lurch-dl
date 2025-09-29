@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ChaoticByte/lurch-dl/core"
+	"remotebranch.eu/ChaoticByte/lurch-dl/core"
 )
 
 // Global Variables
