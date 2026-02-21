@@ -6,6 +6,8 @@ import (
 	"os"
 )
 
+var Version = "dev"
+
 func main() {
 	os.Exit(CliRun())
 }

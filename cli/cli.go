@@ -78,7 +78,7 @@ lurch-dl --url string       The url to the video
                             IP address might get banned from the servers.
                             default: 10.0
 
-Version: ` + core.Version)
+Version: ` + Version)
 }
 
 func CliParseArguments() error {
