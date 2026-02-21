@@ -51,7 +51,6 @@ var Arguments struct {
 	ListFormats bool `json:"-"`
 	ChapterNum   int  `json:"chapter_num"`
 	// Parsed
-	Video core.GtvVideo `json:"-"`
 	StartDuration time.Duration `json:"-"`
 	StopDuration time.Duration `json:"-"`
 	Ratelimit float64 `json:"-"`
@@ -98,10 +97,6 @@ func CliParseArguments() error {
 	flag.BoolVar(&Arguments.ContinueDl, "continue", false, "")
 	flag.Float64Var(&ratelimitMbs, "max-rate", 10.0, "")
 	flag.Parse()
-	Arguments.Video, err = core.ParseGtvVideoUrl(Arguments.Url)
-	if err != nil {
-		return err
-	}
 	if Arguments.TimestampStart == "" {
 		Arguments.StartDuration = -1
 	} else {
@@ -148,7 +143,7 @@ func CliRun() int {
 	if CliXtermTitle {
 		XtermSetTitle("lurch-dl - Fetching video metadata ...")
 	}
-	streamEp, err := core.GetStreamEpisode(Arguments.Video.Id)
+	streamEp, err := core.StreamEpisodeFromUrl(Arguments.Url)
 	if err != nil {
 		CliErrorMessage(err)
 		return 1
@@ -156,7 +151,7 @@ func CliRun() int {
 	fmt.Print("\n")
 	fmt.Printf("Title:     %s\n", streamEp.Title)
 	// Check and list chapters/formats and exit
-	targetChapter, err := streamEp.GetChapterByNumber(Arguments.ChapterNum)
+	targetChapter, err := streamEp.ChapterByNumber(Arguments.ChapterNum)
 	if err != nil {
 		CliErrorMessage(err)
 		CliAvailableChapters(streamEp.Chapters)
@@ -167,7 +162,7 @@ func CliRun() int {
 	}
 	// Video Info
 	if Arguments.VideoInfo {
-		fmt.Printf("Episode:   %s\n", streamEp.Episode)
+		fmt.Printf("Episode:   %s\n", streamEp.EpisodeId)
 		fmt.Printf("Length:    %s\n", streamEp.Length)
 		fmt.Printf("Views:     %d\n", streamEp.Views)
 		fmt.Printf("Timestamp: %s\n", streamEp.Timestamp)
@@ -188,7 +183,7 @@ func CliRun() int {
 		CliAvailableChapters(streamEp.Chapters)
 		return 0
 	}
-	format, err := streamEp.GetFormatByName(Arguments.FormatName)
+	format, err := streamEp.FormatByName(Arguments.FormatName)
 	if err != nil {
 		CliErrorMessage(err)
 		CliAvailableFormats(streamEp.Formats)
@@ -197,15 +192,14 @@ func CliRun() int {
 	fmt.Printf("Format:    %v\n", format.Name)
 	// We already set the output file correctly so we can output it
 	if Arguments.OutputFile == "" {
-		Arguments.OutputFile = streamEp.GetProposedFilename(targetChapter)
+		Arguments.OutputFile = streamEp.ProposeFilename(targetChapter)
 	}
 	// Start Download
 	fmt.Printf("Output:    %v\n", Arguments.OutputFile)
 	fmt.Print("\n")
 	successful := false
 	aborted := false
-	for p := range core.DownloadStreamEpisode(
-		streamEp,
+	for p := range streamEp.DownloadStreamEpisode(
 		targetChapter,
 		Arguments.FormatName,
 		Arguments.OutputFile,

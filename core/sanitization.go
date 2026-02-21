@@ -3,6 +3,7 @@
 package core
 
 import (
+	"slices"
 	"strings"
 	"unicode"
 )
@@ -13,17 +14,7 @@ func sanitizeUnicodeFilename(filename string) string {
 	filename = strings.Trim(strings.ToValidUTF8(filename, ""), " \033\007\u00A0\t\n\r.")
 	var filenameBuilder strings.Builder
 	for _, r := range filename {
-		isInvalid := !unicode.IsPrint(r)
-		if isInvalid {
-			continue
-		}
-		for _, c := range FnInvalidRunes {
-			if r == c {
-				isInvalid = true
-				break
-			}
-		}
-		if !isInvalid {
+		if unicode.IsPrint(r) && !slices.Contains(FnInvalidRunes, r) {
 			filenameBuilder.WriteRune(r)
 		}
 	}

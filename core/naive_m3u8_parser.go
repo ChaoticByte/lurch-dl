@@ -9,6 +9,7 @@ import (
 )
 
 var availFormatsRegex = regexp.MustCompile(`NAME="(.+)"`)
+var targetDurationRegex = regexp.MustCompile(`#EXT-X-TARGETDURATION:(.+)`)
 
 func parseAvailFormatsFromM3u8(m3u8 string) []VideoFormat {
 	foundFormats := []VideoFormat{}
@@ -33,8 +34,6 @@ func parseAvailFormatsFromM3u8(m3u8 string) []VideoFormat {
 	}
 	return foundFormats
 }
-
-var targetDurationRegex = regexp.MustCompile(`#EXT-X-TARGETDURATION:(.+)`)
 
 func parseChunkListFromM3u8(m3u8 string, baseurl string) (ChunkList, error) {
 	chunklist := ChunkList{BaseUrl: baseurl}
