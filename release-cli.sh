@@ -1,19 +1,22 @@
 #!/usr/bin/env bash
 
+set -e
+
 WORKDIR="./cli"
 CORE_DIR="./core"
 OUTPUT_DIR="../dist"
 
 function gobuild {
-    printf -- "-> ${GOOS}\t${GOARCH}\t${OUTPUT_FILE}   "
-    go build -ldflags="-X 'github.com/ChaoticByte/lurch-dl/core.Version=${VERSION}'" -o "${OUTPUT_DIR}/${OUTPUT_FILE}" && printf "\t✔\n"
+    printf -- "-> ${GOOS}\t${GOARCH}\t${OUTPUT_FILE}"
+    go build -ldflags="-X 'github.com/ChaoticByte/lurch-dl/core.Version=${VERSION}'" -o "${OUTPUT_DIR}/${OUTPUT_FILE}"
+    echo ""
 }
 
-read -r VERSION < ./VERSION
+VERSION=$(git describe --tags)
 
 cd "${WORKDIR}"
 
-NAME_BASE="lurch-dl_v${VERSION}"
+NAME_BASE="lurch-dl_${VERSION}"
 
 echo "Building ${NAME_BASE} into ${OUTPUT_DIR}"
 
@@ -23,6 +26,3 @@ GOOS=linux   GOARCH=arm   OUTPUT_FILE=${NAME_BASE}_linux_arm   gobuild
 GOOS=linux   GOARCH=arm64 OUTPUT_FILE=${NAME_BASE}_linux_arm64 gobuild
 
 cd ..
-
-printf -- "Creating version tag"
-git tag -f "v${VERSION}" -m "" && printf "\t\t✔\n"
