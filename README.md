@@ -1,10 +1,12 @@
 
-Definitely not an unofficial commandline downloader for https://gronkh.tv
+Unofficial commandline downloader for https://gronkh.tv
+
 
 ## Compatibility
 
 This tool is only compatible with recent Linux-based operating systems.  
 To run it on Windows, make use of WSL.
+
 
 ## Features
 
@@ -14,26 +16,35 @@ To run it on Windows, make use of WSL.
 - Continuable Downloads
 - Show infos about that Episode
 
-## Known Issues / Limitations
+
+## Limitations
 
 - Downloads are **capped to 16 Mbyte/s by default** and buffering is simulated to pre-empt IP blocking due to API rate-limiting
+- HEVC is **not supported**!
 - Because of the length of video chunks, **start- and stop-timestamps are inaccurate** (± 8 seconds)
-- **Some videoplayers may have problems with the downloaded video file**. To fix this, you can use ffmpeg to rewrite the video into a MKV-File:  
-  `ffmpeg -i video.ts -acodec copy -vcodec copy video.mkv`
+
 
 ## Download / Installation
 
 New versions will appear under [Releases (remotebranch.eu)](https://remotebranch.eu/ChaoticByte/lurch-dl/releases).  
 Just download the application and run it via your favourite terminal emulator.
 
-> Note: **You may have to mark the file as executable before being able to run it.**
+> [!NOTE]  
+> You may have to mark the file as executable before being able to run it.
+
 
 ## Usage
 
+> [!NOTE]  
+> This tool runs entirely on the command line.
+
+> [!WARNING]  
+> **Some videoplayers may have problems with the downloaded video file**.  
+> To fix this, you can use ffmpeg to rewrite the video into a MKV-File:  
+> `ffmpeg -i video.ts -acodec copy -vcodec copy video.mkv`
 
 Run `lurch-dl --help` to see available options.
 
-> Note: This tool runs entirely on the command line.
 
 ### Examples
 

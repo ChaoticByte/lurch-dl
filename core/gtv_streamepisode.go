@@ -135,6 +135,11 @@ func StreamEpisodeFromUrl(url string) (StreamEpisode, error) {
 		ApiHeadersMetaAdditional,
 		time.Second*10,
 	)
-	ep.Formats = parseAvailFormatsFromM3u8(string(playlist_data))
+	formats := parseAvailFormatsFromM3u8(string(playlist_data))
+	for _, f := range formats {
+		if !strings.Contains(strings.ToLower(f.Name), "hevc") {
+			ep.Formats = append(ep.Formats, f)
+		}
+	}
 	return ep, err
 }
