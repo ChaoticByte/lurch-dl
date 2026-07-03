@@ -16,7 +16,7 @@ To run it on Windows, make use of WSL.
 
 ## Known Issues / Limitations
 
-- Downloads are **capped to 10 Mbyte/s by default** and buffering is simulated to pre-empt IP blocking due to API rate-limiting
+- Downloads are **capped to 16 Mbyte/s by default** and buffering is simulated to pre-empt IP blocking due to API rate-limiting
 - Because of the length of video chunks, **start- and stop-timestamps are inaccurate** (± 8 seconds)
 - **Some videoplayers may have problems with the downloaded video file**. To fix this, you can use ffmpeg to rewrite the video into a MKV-File:  
   `ffmpeg -i video.ts -acodec copy -vcodec copy video.mkv`

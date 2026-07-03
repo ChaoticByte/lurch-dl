@@ -76,7 +76,7 @@ lurch-dl --url string       The url to the video
          [--max-rate float] The maximum download rate in MB/s - don't set this
                             too high, you may run into a ratelimit and your
                             IP address might get banned from the servers.
-                            default: 10.0
+                            default: 16.0
 
 Version: ` + Version)
 }
@@ -95,7 +95,7 @@ func CliParseArguments() error {
 	flag.StringVar(&Arguments.TimestampStop, "stop", "", "")
 	flag.BoolVar(&Arguments.Overwrite, "overwrite", false, "")
 	flag.BoolVar(&Arguments.ContinueDl, "continue", false, "")
-	flag.Float64Var(&ratelimitMbs, "max-rate", 10.0, "")
+	flag.Float64Var(&ratelimitMbs, "max-rate", 16.0, "")
 	flag.Parse()
 	if Arguments.TimestampStart == "" {
 		Arguments.StartDuration = -1
@@ -231,7 +231,7 @@ func CliRun() int {
 	} else { return 0 }
 }
 
-func CliAvailableChapters(chapters []core.Chapter) {
+func CliAvailableChapters(chapters []core.StreamEpChapter) {
 	fmt.Println("Chapters:")
 	for _, f := range chapters {
 		fmt.Printf("         %3d %10s - %10s\t%s\n", f.Index+1, f.StartOffset, f.EndOffset, f.Category.Title)
