@@ -40,70 +40,41 @@ Run `lurch-dl --help` to see available options.
 Download a video in its best available format:
 
 ```
-./lurch-dl --url https://gronkh.tv/streams/777
-
-Title:     GTV0777, 2023-11-09 - DIESER STREAM IST ILLEGAL UND ...
-Format:    1080p60
-Output:    GTV0777, 2023-11-09 - DIESER STREAM IST [...].ts
-
-Downloaded 0.32% at 10.00 MB/s ...
+./lurch-dl --url https://gronkh.tv/stream/777
 ```
 
 Continue a download:
 
 ```
-./lurch-dl --url https://gronkh.tv/streams/777 --continue
+./lurch-dl --url https://gronkh.tv/stream/777 --continue
 ```
 
 Download a specific chapter:
 
 ```
-./lurch-dl --url https://gronkh.tv/streams/777 --chapter 2
-
-Title:     GTV0777, 2023-11-09 - DIESER STREAM IST ILLEGAL UND ...
-Format:    1080p60
-Chapter:   2. Alan Wake II
-Output:    GTV0777 - 2. Alan Wake II.ts
-
-Downloaded 0.33% at 4.28 MB/s ...
+./lurch-dl --url https://gronkh.tv/stream/777 --chapter 2
 ```
 
 Specify a start- and stop-timestamp:
 
 ```
-./lurch-dl --url https://gronkh.tv/streams/777 --start 5h6m41s --stop 5h6m58s
+./lurch-dl --url https://gronkh.tv/stream/777 --start 5h6m41s --stop 5h6m58s
 ```
 
-List all available formats for a video:
+List all available formats, chapters, and more info for a video:
 
 ```
-./lurch-dl --url https://gronkh.tv/streams/777 --info
-
-Title:     GTV0777, 2023-11-09 - DIESER STREAM IST ILLEGAL UND ...
-Episode:   777
-Length:    9h48m55s
-Views:     45424
-Timestamp: 2023-11-09T18:23:01Z
-Tags:      -
-Formats:   1080p60, 720p, 360p
-Chapters:
-           1         0s Just Chatting
-           2    2h53m7s Alan Wake II
-           3    9h35m0s Just Chatting
+./lurch-dl --url https://gronkh.tv/stream/777 --info
 ```
 
 Download the video in a specific format:
 
 ```
-./lurch-dl --url https://gronkh.tv/streams/777 --format 720p
-
-[...]
-Format:    720p
-[...]
+./lurch-dl --url https://gronkh.tv/stream/777 --format 720p
 ```
 
 Specify a filename:
 
 ```
-./lurch-dl --url https://gronkh.tv/streams/777 --output Stream777.ts
+./lurch-dl --url https://gronkh.tv/stream/777 --output Stream777.ts
 ```

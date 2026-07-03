@@ -14,10 +14,9 @@ var targetDurationRegex = regexp.MustCompile(`#EXT-X-TARGETDURATION:(.+)`)
 func parseAvailFormatsFromM3u8(m3u8 string) []VideoFormat {
 	foundFormats := []VideoFormat{}
 	m3u8 = strings.ReplaceAll(m3u8, "\r", "")
-	parts := strings.Split(m3u8, "#EXT-X-STREAM-INF")
-	for _, p := range parts {
+	for p := range strings.SplitSeq(m3u8, "#EXT-X-STREAM-INF") {
 		p := strings.Trim(p, " \n")
-		if strings.HasPrefix(p, ":") && strings.Contains(p, "RESOLUTION=") && strings.Contains(p, "FRAMERATE=") && strings.Contains(p, "NAME=") {
+		if strings.HasPrefix(p, ":") && strings.Contains(p, "RESOLUTION=") && strings.Contains(p, "FRAME-RATE=") && strings.Contains(p, "NAME=") {
 			format := VideoFormat{}
 			plItem := strings.Split(p, "\n")
 			if len(plItem) < 2 {

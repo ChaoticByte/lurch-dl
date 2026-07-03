@@ -157,15 +157,14 @@ func CliRun() int {
 		CliAvailableChapters(streamEp.Chapters)
 		return 1
 	}
-	if Arguments.ChapterNum > 0 && len(streamEp.Chapters) > 0 {
-		fmt.Printf("Chapter:   %v. %v\n", Arguments.ChapterNum, targetChapter.Title)
+	if Arguments.ChapterNum > 0 && len(streamEp.Chapters) > 0 && targetChapter != nil {
+		fmt.Printf("Chapter:   %v. %v\n", Arguments.ChapterNum, targetChapter.Category.Title)
 	}
 	// Video Info
 	if Arguments.VideoInfo {
-		fmt.Printf("Episode:   %s\n", streamEp.EpisodeId)
-		fmt.Printf("Length:    %s\n", streamEp.Length)
+		fmt.Printf("Episode:   %d\n", streamEp.EpisodeNumber)
+		fmt.Printf("Length:    %s\n", streamEp.Meta.Duration)
 		fmt.Printf("Views:     %d\n", streamEp.Views)
-		fmt.Printf("Timestamp: %s\n", streamEp.Timestamp)
 		if len(streamEp.Tags) > 0 {
 			fmt.Print("Tags:      ")
 			for i, t := range streamEp.Tags {
@@ -235,7 +234,7 @@ func CliRun() int {
 func CliAvailableChapters(chapters []core.Chapter) {
 	fmt.Println("Chapters:")
 	for _, f := range chapters {
-		fmt.Printf("         %3d %10s\t%s\n", f.Index+1, f.Offset, f.Title)
+		fmt.Printf("         %3d %10s - %10s\t%s\n", f.Index+1, f.StartOffset, f.EndOffset, f.Category.Title)
 	}
 }
 
@@ -256,17 +255,17 @@ func CliDownloadProgress(progress float32, rate float64, delaying bool, waiting 
 		if retries == 1 {
 			fmt.Print("\n")
 		}
-		fmt.Printf("Downloaded %.2f%% at %.2f MB/s (retry %v) ...      ", progress*100.0, rate/1000000.0, retries)
+		fmt.Printf("Downloaded %.2f%% @ %.2f MB/s (retry %v) ...      ", progress*100.0, rate/1000000.0, retries)
 		fmt.Print("\n")
 	} else if waiting {
-		fmt.Printf("Downloaded %.2f%% at %.2f MB/s ...                 \r", progress*100.0, rate/1000000.0)
+		fmt.Printf("Downloaded %.2f%% @ %.2f MB/s ...                 \r", progress*100.0, rate/1000000.0)
 	} else if delaying {
-		fmt.Printf("Downloaded %.2f%% at %.2f MB/s (delaying) ...      \r", progress*100.0, rate/1000000.0)
+		fmt.Printf("Downloaded %.2f%% @ %.2f MB/s (delaying) ...      \r", progress*100.0, rate/1000000.0)
 	} else {
-		fmt.Printf("Downloaded %.2f%% at %.2f MB/s                     \r", progress*100.0, rate/1000000.0)
+		fmt.Printf("Downloaded %.2f%% @ %.2f MB/s                     \r", progress*100.0, rate/1000000.0)
 	}
 	if CliXtermTitle {
-		XtermSetTitle(fmt.Sprintf("lurch-dl - Downloaded %.2f%% at %.2f MB/s - %v", progress*100.0, rate/1000000.0, title))
+		XtermSetTitle(fmt.Sprintf("lurch-dl - Downloaded %.2f%% @ %.2f MB/s - %v", progress*100.0, rate/1000000.0, title))
 	}
 }
 

@@ -22,8 +22,7 @@ const MaxRetries = 5
 const RatelimitDelay = 2.0      // in Seconds; How long to delay the next chunk download.
 const RatelimitDelayAfter = 5.0 // in Seconds; Delay the next chunk download after this duration.
 
-const ApiBaseurlStreamEpisodeInfo = "https://api.gronkh.tv/v1/video/info?episode=%s"
-const ApiBaseurlStreamEpisodePlInfo = "https://api.gronkh.tv/v1/video/playlist?episode=%s"
+const ApiBaseurlStreamEpisodeInfo   = "https://backend.gronkh.tv/v3/videos/episode/%s"
 
 type DownloadProgress struct {
 	Aborted bool
@@ -38,7 +37,7 @@ type DownloadProgress struct {
 }
 
 var ApiHeadersBase = http.Header{
-	"User-Agent":      {"Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/119.0"},
+	"User-Agent":      {"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.7727.56 Safari/537.36"},
 	"Accept-Language": {"de,en-US;q=0.7,en;q=0.3"},
 	//"Accept-Encoding": {"gzip"},
 	"Origin":         {"https://gronkh.tv"},
@@ -62,14 +61,20 @@ var ApiHeadersVideoAdditional = http.Header{
 
 //
 
+type Category struct {
+	Title  string `json:"title"`
+}
+
 type Chapter struct {
-	Index  int           `json:"index"`
-	Title  string        `json:"title"`
-	Offset time.Duration `json:"offset"`
+	Index       int           `json:"index"`
+	StartOffset time.Duration `json:"start_offset"`
+	EndOffset   time.Duration `json:"end_offset"`
+	Duration    time.Duration `json:"duration"`
+	Category    Category      `json:"category"`
 }
 
 type VideoTag struct {
-	Id    int    `json:"id"`
+	Id    int    `json:"tag_id"`
 	Title string `json:"title"`
 }
 
@@ -127,7 +132,7 @@ func ParseGtvVideoUrl(url string) (string, error) {
 		return "", &GtvVideoUrlParseError{Url: url}
 	}
 	cat := match[1]
-	if cat != "streams" {
+	if cat != "stream" {
 		return "", &VideoCategoryUnsupportedError{Category: cat}
 	}
 	return match[2], nil
@@ -135,24 +140,38 @@ func ParseGtvVideoUrl(url string) (string, error) {
 
 //
 
+type StreamEpisodeResponse struct {
+	StreamEpisode StreamEpisode `json:"data"`
+}
+
+type StreamEpisodeMeta struct {
+	Duration time.Duration `json:"duration"`
+}
+
+type StreamEpisodeUrls struct {
+	Playlist string `json:"playlist"`
+}
+
 type StreamEpisode struct {
-	EpisodeId   string        `json:"episode"`
-	Title       string        `json:"title"`
-	Formats     []VideoFormat `json:"formats"`
-	Chapters    []Chapter     `json:"chapters"`
-	PlaylistUrl string        `json:"playlist_url"`
-	Length      time.Duration `json:"source_length"`
-	Views       int           `json:"views"`
-	Timestamp   string        `json:"created_at"`
-	Tags        []VideoTag    `json:"tags"`
+	// 
+	Id            string            `json:"id"`
+	EpisodeNumber int               `json:"episode"`
+	Title         string            `json:"title"`
+	Views         int               `json:"views"`
+	Meta          StreamEpisodeMeta `json:"meta"`
+	Urls          StreamEpisodeUrls `json:"urls"`
+	Chapters      []Chapter         `json:"chapters"`
+	Tags          []VideoTag        `json:"tags"`
+	//
+	Formats       []VideoFormat     `json:"formats"`
 }
 
 func (ep *StreamEpisode) FormatByName(formatName string) (VideoFormat, error) {
 	var idx int
 	var err error = nil
 	if formatName == "auto" {
-		// at the moment, the best format is always the first -> 0
-		return ep.Formats[idx], nil
+		// since gronkh.tv 0.2.2, the last format is the best
+		return ep.Formats[len(ep.Formats)-1], nil
 	} else {
 		formatFound := false
 		for i, f := range ep.Formats {
@@ -168,34 +187,34 @@ func (ep *StreamEpisode) FormatByName(formatName string) (VideoFormat, error) {
 	}
 }
 
-func (ep *StreamEpisode) ChapterByNumber(number int) (Chapter, error) {
-	chapter := Chapter{Index: -1} // set Index to -1 for noop
+func (ep *StreamEpisode) ChapterByNumber(number int) (*Chapter, error) {
+	var chapter *Chapter
 	idx := number-1
 	if idx >= 0 && idx >= len(ep.Chapters) {
 		return chapter, &ChapterNotFoundError{ChapterNum: number}
 	}
 	if len(ep.Chapters) > 0 && idx >= 0 {
-		chapter = ep.Chapters[idx]
+		chapter = &ep.Chapters[idx]
 	}
 	return chapter, nil
 }
 
-func (ep *StreamEpisode) ProposeFilename(chapter Chapter) string {
-	if chapter.Index >= 0 && chapter.Index < len(ep.Chapters) {
-		return fmt.Sprintf("GTV%04s - %v. %s.ts", ep.EpisodeId, chapter.Index, sanitizeUnicodeFilename(ep.Chapters[chapter.Index].Title))
+func (ep *StreamEpisode) ProposeFilename(chapter *Chapter) string {
+	if chapter != nil {
+		return fmt.Sprintf("GTV%04d - %v. %s.ts", ep.EpisodeNumber, chapter.Index, sanitizeUnicodeFilename(ep.Chapters[chapter.Index].Category.Title))
 	} else {
 		return sanitizeUnicodeFilename(ep.Title) + ".ts"
 	}
 }
 
 func (ep *StreamEpisode) DownloadStreamEpisode(
-	chapter Chapter,
+	chapter *Chapter,
 	formatName string,
 	outputFile string,
 	overwrite bool,
 	continueDl bool,
-	startDuration time.Duration,
-	stopDuration time.Duration,
+	startOffset time.Duration,
+	stopOffset time.Duration,
 	ratelimit float64,
 	interruptChan chan os.Signal,
 ) iter.Seq[DownloadProgress] {
@@ -204,13 +223,13 @@ func (ep *StreamEpisode) DownloadStreamEpisode(
 		if outputFile == "" {
 			outputFile = ep.ProposeFilename(chapter)
 		}
-		if chapter.Index >= 0 {
-			if startDuration < 0 {
-				startDuration = time.Duration(ep.Chapters[chapter.Index].Offset)
+		if chapter != nil {
+			if startOffset < 0 {
+				startOffset = time.Duration(ep.Chapters[chapter.Index].StartOffset)
 			}
-			if stopDuration < 0 && chapter.Index+1 < len(ep.Chapters) {
+			if stopOffset < 0 {
 				// next chapter is stop
-				stopDuration = time.Duration(ep.Chapters[chapter.Index+1].Offset)
+				stopOffset = time.Duration(ep.Chapters[chapter.Index].EndOffset)
 			}
 		}
 		//
@@ -266,7 +285,7 @@ func (ep *StreamEpisode) DownloadStreamEpisode(
 		// download
 		format, _ := ep.FormatByName(formatName) // we don't have to check the error, as it was already checked by CliRun()
 		chunklist, err := format.StreamChunkList()
-		chunklist = chunklist.Cut(startDuration, stopDuration)
+		chunklist = chunklist.Cut(startOffset, stopOffset)
 		if err != nil {
 			yield(DownloadProgress{Error: err})
 			return
@@ -341,39 +360,44 @@ func (ep *StreamEpisode) DownloadStreamEpisode(
 }
 
 func StreamEpisodeFromUrl(url string) (StreamEpisode, error) {
-	ep := StreamEpisode{}
-	id, err := ParseGtvVideoUrl(url)
-	if err != nil { return ep, err }
-	ep.EpisodeId = id
+	epNumber, err := ParseGtvVideoUrl(url)
+	if err != nil { return StreamEpisode{}, err }
 	info_data, err := httpGet(
-		fmt.Sprintf(ApiBaseurlStreamEpisodeInfo, id),
+		fmt.Sprintf(ApiBaseurlStreamEpisodeInfo, epNumber),
 		[]http.Header{ApiHeadersBase, ApiHeadersMetaAdditional},
 		time.Second*10,
 	)
-	if err != nil { return ep, err }
+	if err != nil { return StreamEpisode{}, err }
+	// Parse JSON Response
+	epContainer := StreamEpisodeResponse{}
+	json.Unmarshal(info_data, &epContainer)
+	ep := epContainer.StreamEpisode
 	// Title
-	json.Unmarshal(info_data, &ep)
 	ep.Title = strings.ToValidUTF8(ep.Title, "")
-	// Length
-	ep.Length = ep.Length * time.Second
-	// Sort Chapters, correct offset and set index
-	sort.Slice(ep.Chapters, func(i int, j int) bool {
-		return ep.Chapters[i].Offset < ep.Chapters[j].Offset
-	})
-	for i := range ep.Chapters {
-		ep.Chapters[i].Offset = ep.Chapters[i].Offset * time.Second
-		ep.Chapters[i].Index = i
+	// Correct Duration
+	ep.Meta.Duration *= time.Second
+	// Sort Chapters, correct Offset and set index
+	chaptersProcessed := []Chapter{}
+	for _, chap := range ep.Chapters {
+		// filter out invalid data
+		if chap.EndOffset == 1 || chap.Duration == 1 || chap.Category.Title == "" {
+			continue
+		}
+		chaptersProcessed = append(chaptersProcessed, chap)
 	}
+	sort.Slice(chaptersProcessed, func(i int, j int) bool {
+		return chaptersProcessed[i].StartOffset < chaptersProcessed[j].StartOffset
+	})
+	for i := range chaptersProcessed {
+		chaptersProcessed[i].StartOffset *= time.Second
+		chaptersProcessed[i].EndOffset *= time.Second
+		chaptersProcessed[i].Duration *= time.Second
+		chaptersProcessed[i].Index = i
+	}
+	ep.Chapters = chaptersProcessed
 	// Formats
-	playlist_url_data, err := httpGet(
-		fmt.Sprintf(ApiBaseurlStreamEpisodePlInfo, id),
-		[]http.Header{ApiHeadersBase, ApiHeadersMetaAdditional},
-		time.Second*10,
-	)
-	if err != nil { return ep, err }
-	json.Unmarshal(playlist_url_data, &ep)
 	playlist_data, err := httpGet(
-		ep.PlaylistUrl,
+		ep.Urls.Playlist,
 		[]http.Header{ApiHeadersBase, ApiHeadersMetaAdditional},
 		time.Second*10,
 	)
